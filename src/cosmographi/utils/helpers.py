@@ -228,3 +228,12 @@ def bandstr_to_bandidx(bands, bandstr):
 
     # 4. Undo the sort
     return sort_idx[sorted_positions]
+
+def bandidx_to_bandstr(bands, bandidx):
+    """
+    Convert band indices back into strings. Inverse of `bandstr_to_bandidx`.
+    # TODO: Is this correct?
+    """
+    return np.array(bands)[bandidx]
+
+
