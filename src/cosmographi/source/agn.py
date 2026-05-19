@@ -8,6 +8,7 @@ from cosmographi.cosmology import Cosmology
 from .base import TransientSource
 from ..utils import flux
 from ..utils.constants import Mpc_to_cm
+from typing import Any
 
 import eztaox.kernels.quasisep as ekq
 from lightcurvelynx.astro_utils.passbands import PassbandGroup
@@ -52,7 +53,7 @@ class AGNSource_Yu2025(TransientSource):
     # def luminosity_density(self, z: float, w: jnp.ndarray, kernel: ekq.Kernel = ekq.Exp(scale=1, sigma=1), 
     #                       log_k_params: list|None = None, log_amp_scale: float|None = None, 
     #                       base_mag: dict[str, float]|None = None) -> jnp.ndarray:
-    def luminosity_density(self, w: jnp.ndarray, pp: Any, t0: float, x1: float, c: float, z: float, 
+    def luminosity_density(self, w: jnp.ndarray, p, t0: float, x1: float, c: float, z: float, 
                            kernel: ekq.Kernel = ekq.Exp(scale=1, sigma=1), log_k_params: list|None = None, 
                            log_amp_scale: float|None = None, base_mag: dict[str, float]|None = None) -> jnp.ndarray:
         """
