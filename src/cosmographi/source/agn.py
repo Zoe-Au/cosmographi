@@ -1,15 +1,5 @@
 import os
 
-import eztaox.kernels.quasisep as ekq
-from lightcurvelynx.astro_utils.passbands import PassbandGroup
-from lightcurvelynx.math_nodes.basic_math_node import BasicMathNode
-from lightcurvelynx.math_nodes.np_random import NumpyRandomFunc
-from lightcurvelynx.obstable.opsim import OpSim
-from lightcurvelynx.simulate import simulate_lightcurves
-from lightcurvelynx.models.eztaox_models import EzTaoXWrapperModel
-from lightcurvelynx.utils.plotting import plot_lightcurves
-help(simulate_lightcurves)
-
 import jax.numpy as jnp
 import jax
 from caskade import Param, forward
@@ -19,6 +9,15 @@ from .base import TransientSource
 from ..utils import flux
 from ..utils.constants import Mpc_to_cm
 
+import eztaox.kernels.quasisep as ekq
+from lightcurvelynx.astro_utils.passbands import PassbandGroup
+from lightcurvelynx.math_nodes.basic_math_node import BasicMathNode
+from lightcurvelynx.math_nodes.np_random import NumpyRandomFunc
+from lightcurvelynx.obstable.opsim import OpSim
+from lightcurvelynx.simulate import simulate_lightcurves
+from lightcurvelynx.models.eztaox_models import EzTaoXWrapperModel
+from lightcurvelynx.utils.plotting import plot_lightcurves
+from lightcurvelynx.astro_utils.passbands import Passband, PassbandGroup
 
 
 class AGNSource_Yu2025(TransientSource):
@@ -72,7 +71,15 @@ class AGNSource_Yu2025(TransientSource):
             Luminosity density array.
         """
         source = self._create_agn_model(z, w, kernel, log_k_params, log_amp_scale, base_mag)
-        lightcurves = simulate_lightcurves(source, )
+        survey = OpSim({})
+        table_values = np.stack([np.asarray(w), np.ones_like(w)], axis=1)
+        passband = Passband(table_values, "survey", "f")
+        passband_group = PassbandGroup([passband])
+        lightcurves = simulate_lightcurves(source, 1, survey, passband_group)
+        lcs = []
+        for lc in lightcurves["lightcurve"]:
+            lcs.append(lc["flux_perfect"])
+        return jnp.array(lcs)  # Assuming the flux is in the desired units. May need to convert.
 
 
     def _create_agn_model(self, z: float, w: jnp.ndarray, kernel: ekq.Kernel = ekq.Exp(scale=1, sigma=1), 
