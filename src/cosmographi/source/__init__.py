@@ -8,6 +8,7 @@ __all__ = (
     "StaticBlackbody",
     "TransientBlackbody",
     "source_factory",
+    "AGNSource_Yu2025",
     "SALT2_2021",
     "effects",
     "prior",
