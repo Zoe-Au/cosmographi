@@ -49,10 +49,11 @@ class AGNSource_Yu2025(TransientSource):
         # self.accretion_rate = Param("accretion_rate", accretion_rate, shape=(), 
         #                            description="Accretion rate of the black hole", units="Eddington ratio")    
     
-    @forward
     # def luminosity_density(self, z: float, w: jnp.ndarray, kernel: ekq.Kernel = ekq.Exp(scale=1, sigma=1), 
     #                       log_k_params: list|None = None, log_amp_scale: float|None = None, 
     #                       base_mag: dict[str, float]|None = None) -> jnp.ndarray:
+
+    @forward
     def luminosity_density(self, w: jnp.ndarray, p, t0: float, x1: float, c: float, z: float, 
                            kernel: ekq.Kernel = ekq.Exp(scale=1, sigma=1), log_k_params: list|None = None, 
                            log_amp_scale: float|None = None, base_mag: dict[str, float]|None = None) -> jnp.ndarray:
