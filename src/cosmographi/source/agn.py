@@ -49,9 +49,12 @@ class AGNSource_Yu2025(TransientSource):
         #                            description="Accretion rate of the black hole", units="Eddington ratio")    
     
     @forward
-    def luminosity_density(self, z: float, w: jnp.ndarray, kernel: ekq.Kernel = ekq.Exp(scale=1, sigma=1), 
-                          log_k_params: list|None = None, log_amp_scale: float|None = None, 
-                          base_mag: dict[str, float]|None = None) -> jnp.ndarray:
+    # def luminosity_density(self, z: float, w: jnp.ndarray, kernel: ekq.Kernel = ekq.Exp(scale=1, sigma=1), 
+    #                       log_k_params: list|None = None, log_amp_scale: float|None = None, 
+    #                       base_mag: dict[str, float]|None = None) -> jnp.ndarray:
+    def luminosity_density(self, w: jnp.ndarray, pp: Any, t0: float, x1: float, c: float, z: float, 
+                           kernel: ekq.Kernel = ekq.Exp(scale=1, sigma=1), log_k_params: list|None = None, 
+                           log_amp_scale: float|None = None, base_mag: dict[str, float]|None = None) -> jnp.ndarray:
         """
         Compute the luminosity density of the AGN source at a given wavelength and redshift in units of
         erg/s/nm and time in units of seconds.
