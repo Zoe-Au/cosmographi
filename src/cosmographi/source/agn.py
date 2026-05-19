@@ -37,16 +37,16 @@ class AGNSource_Yu2025(TransientSource):
     """
     cosmology: Cosmology
     name: str
-    blackhole_mass: float
-    accretion_rate: float
+    # blackhole_mass: float
+    # accretion_rate: float
 
     def __init__(self, cosmology: Cosmology = None, name: str = None, blackhole_mass: float = None, 
                  accretion_rate: float = None, **kwargs) -> None:
         super().__init__(cosmology=cosmology, name=name, **kwargs)
-        self.blackhole_mass = Param("blackhole_mass", blackhole_mass, shape=(), 
-                                    description="Mass of the black hole", units="solar masses")
-        self.accretion_rate = Param("accretion_rate", accretion_rate, shape=(), 
-                                    description="Accretion rate of the black hole", units="Eddington ratio")    
+        # self.blackhole_mass = Param("blackhole_mass", blackhole_mass, shape=(), 
+        #                            description="Mass of the black hole", units="solar masses")
+        # self.accretion_rate = Param("accretion_rate", accretion_rate, shape=(), 
+        #                            description="Accretion rate of the black hole", units="Eddington ratio")    
     
     @forward
     def luminosity_density(self, z: float, w: jnp.ndarray, kernel: ekq.Kernel = ekq.Exp(scale=1, sigma=1), 
