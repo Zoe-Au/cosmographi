@@ -1,4 +1,5 @@
 import os
+from warnings import filters
 
 import jax.numpy as jnp
 import jax
@@ -9,19 +10,17 @@ from .base import TransientSource
 from ..utils import flux
 from ..utils.constants import Mpc_to_cm
 from typing import Any
+import tinygp
 
-import eztaox.kernels.quasisep as ekq
-from lightcurvelynx.astro_utils.passbands import PassbandGroup
-from lightcurvelynx.math_nodes.basic_math_node import BasicMathNode
-from lightcurvelynx.math_nodes.np_random import NumpyRandomFunc
-from lightcurvelynx.obstable.opsim import OpSim
-from lightcurvelynx.simulate import simulate_lightcurves
-from lightcurvelynx.models.eztaox_models import EzTaoXWrapperModel
-from lightcurvelynx.utils.plotting import plot_lightcurves
-from lightcurvelynx.astro_utils.passbands import Passband, PassbandGroup
+from lightcurvelynx.models.agn import AGN
+
+def delta_fun(i, j) -> int:
+    if i == j:
+        return 1
+    return 0
 
 
-class AGNSource_Yu2025(TransientSource):
+class AGNSource(TransientSource):
     """
     An AGN source model generated through damped random walk.
 
@@ -42,21 +41,59 @@ class AGNSource_Yu2025(TransientSource):
     # accretion_rate: float
 
     def __init__(self, cosmology: Cosmology = None, name: str = None, blackhole_mass: float = None, 
-                 accretion_rate: float = None, **kwargs) -> None:
+                 edd_ratio: float = None, **kwargs) -> None:
         super().__init__(cosmology=cosmology, name=name, **kwargs)
-        # self.blackhole_mass = Param("blackhole_mass", blackhole_mass, shape=(), 
-        #                            description="Mass of the black hole", units="solar masses")
-        # self.accretion_rate = Param("accretion_rate", accretion_rate, shape=(), 
-        #                            description="Accretion rate of the black hole", units="Eddington ratio")    
+        self.blackhole_mass = Param("blackhole_mass", blackhole_mass, shape=(), 
+                                   description="Mass of the black hole", units="solar masses")
+        self.edd_ratio = Param("edd_ratio", edd_ratio, shape=(), 
+                                   description="Eddington ratio of the black hole", units="dimensionless")    
     
-    # def luminosity_density(self, z: float, w: jnp.ndarray, kernel: ekq.Kernel = ekq.Exp(scale=1, sigma=1), 
-    #                       log_k_params: list|None = None, log_amp_scale: float|None = None, 
-    #                       base_mag: dict[str, float]|None = None) -> jnp.ndarray:
+
+    def likelihood_function(self) -> float:
+        """
+        Compute the likelihood of the model.
+
+        Parameters
+        ----------
+
+        Returns
+        -------
+        float
+            The computed likelihood value.
+        """
+
+        
+        
+
+    def _create_covariance_matrix(self, tau: float, sigma: float, t0: float, t: jnp.ndarray) -> jnp.ndarray:
+        """
+        Create the covariance matrix for the damped random walk model.
+
+        Parameters
+        ----------
+        tau: float
+            Characteristic timescale of the variability (in days).
+        sigma: float
+            Variability amplitude (in magnitudes).
+        t0: float
+            Reference time (in days).
+        t: jnp.ndarray
+            Time array (in days).
+
+        Returns
+        -------
+        jnp.ndarray
+            Covariance matrix.
+        """
+        abs_dt = jnp.abs(t[:, None] - t0)
+        k = sigma**2 * jnp.exp(-abs_dt / tau)
+        num_obs = len(t)
+        return jnp.from_function(k + sigma**2 * self._delta_fun, (num_obs, num_obs), dtype=jnp.float32)
+
+
 
     @forward
-    def luminosity_density(self, w: jnp.ndarray, p, t0: float, x1: float, c: float, z: float, 
-                           kernel: ekq.Kernel = ekq.Exp(scale=1, sigma=1), log_k_params: list|None = None, 
-                           log_amp_scale: float|None = None, base_mag: dict[str, float]|None = None) -> jnp.ndarray:
+    def luminosity_density(self, w, p, t0, x1, c, z) -> jnp.ndarray:
         """
         Compute the luminosity density of the AGN source at a given wavelength and redshift in units of
         erg/s/nm and time in units of seconds.
@@ -75,68 +112,11 @@ class AGNSource_Yu2025(TransientSource):
         jnp.ndarray
             Luminosity density array.
         """
-        source = self._create_agn_model(z, w, kernel, log_k_params, log_amp_scale, base_mag)
-        survey = OpSim({})
-        table_values = np.stack([np.asarray(w), np.ones_like(w)], axis=1)
-        passband = Passband(table_values, "survey", "f")
-        passband_group = PassbandGroup([passband])
-        lightcurves = simulate_lightcurves(source, 1, survey, passband_group)
-        lcs = []
-        for lc in lightcurves["lightcurve"]:
-            lcs.append(lc["flux_perfect"])
-        return jnp.array(lcs)  # Assuming the flux is in the desired units. May need to convert.
 
 
-    def _create_agn_model(self, z: float, w: jnp.ndarray, kernel: ekq.Kernel = ekq.Exp(scale=1, sigma=1), 
-                          log_k_params: list|None = None, log_amp_scale: float|None = None, 
-                          base_mag: dict[str, float]|None = None) -> EzTaoXWrapperModel:
-        """
-        Return a Gaussian Process model for the AGN lightcurve.
 
-        Precondition: The keys of <base_mag> are strings of the values of <w>.
 
-        #TODO: add more parameters for the GP model, such as the mean function, lag, etc.
 
-        Parameters
-        ----------
-        kernel: ekq.Kernel|None
-            The kernel to use for the Gaussian Process. Default is an exponential kernel.
-        k_params: list|None
-            Parameters for the kernel. If None, default parameters will be used.
-        log_amp_scale: float|None
-            log_amp_scale parameters for the Gaussian Process. If None, default parameters will be used. 
-        base_mag: dict[str, float]|None
-            The base magnitude for the AGN. The keys should be the wavelengths in w as strings.If None, a default value will 
-            be used. If 0 is passed, the model output would be the chnage in magnitude.  
 
-        Returns
-        -------
-        EzTaoXWrapperModel
-            The created AGN model.
-        """
-        # set default kernel parameters if not provided
-        if log_k_params is None:
-            log_kernel_param = [
-                BasicMathNode("log(scale)", scale=NumpyRandomFunc("uniform", low=1.0, high=1000.0, node_label="scale")),
-                BasicMathNode("log(sigma)", sigma=NumpyRandomFunc("uniform", low=0.01, high=1.0, node_label="sigma")),]
-        # set default GP parameters if not provided
-        if log_amp_scale is None:
-            log_amp_scale = [0.0, -0.22, -0.69]
-        if base_mag is None:
-            base_mag = {w[0, col].item(): NumpyRandomFunc("normal", loc = 23.0, scale = 0.5) 
-            for col in range(w.shape[1])}
-        source = EzTaoXWrapperModel(
-            kernel,  
-            baseline_mags=base_mag,  
-            band_list=[w[0, col].item() for col in range(w.shape[1])],  # A list of band names in order
-            log_kernel_param=log_kernel_param,  # A list of setters for the kernel parameters
-            log_amp_scale=log_amp_scale,  # A length N list of setters for the amplitude scales per band
-            zero_mean=True,
-            has_lag=False,
-            ra=0.0,
-            dec=0.0,
-            redshift=z,
-            node_label=self.name,  # A node name for convenience
-        )
-        return source
+
 
