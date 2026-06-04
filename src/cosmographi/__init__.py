@@ -44,6 +44,7 @@ __all__ = (
     "TransientSource",
     "StaticSource",
     "effects",
+    "AGN",
     "SALT2_2021",
     "source_factory",
     "StaticBlackbody",
@@ -57,5 +58,4 @@ __all__ = (
     "Throughput",
     "MagSystem",
     "MagAB",
-    "Cosmology",
-)
+    "Cosmology")
