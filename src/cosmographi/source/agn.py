@@ -29,8 +29,8 @@ class AGNSource(TransientSource):
     """
     name: str
     cosmology: Cosmology
-    blackhole_mass: Param[float]
-    edd_ratio: Param[float]
+    blackhole_mass: Param
+    edd_ratio: Param
 
     def __init__(self, cosmology: Cosmology = None, name: str = None, blackhole_mass: float = None, 
                  edd_ratio: float = None, **kwargs) -> None:
@@ -41,7 +41,7 @@ class AGNSource(TransientSource):
                                    description="Eddington ratio of the black hole", units="dimensionless")    
     
     @forward
-    def luminosity_density(self, w=350, t, z=0.1) -> jnp.ndarray:
+    def luminosity_density(self, z, t: float, w: jnp.ndarray) -> jnp.ndarray:
         """
         Compute the luminosity density of the AGN source at a given wavelength and redshift in units of
         erg/s/nm and time in units of seconds.
@@ -89,7 +89,7 @@ class AGNSource(TransientSource):
         jnp.ndarray
             Flux array in units of nJy
         """
-        if not jnp.all(338 <= w <= 395):
+        if not jnp.all((338 <= w) & (w <= 395)):
             raise NotImplementedError("The curent AGN model is only for passband u. Please choose a value between " \
             "338 and 395 nm.")
         a, c, d = self.get_parameters()
@@ -97,9 +97,9 @@ class AGNSource(TransientSource):
 
     def get_parameters(self) -> list[float]:
         """ Get the parameters of the sine function based on the black hole mass and eddington ratio. """
-        bh_mass = self.blackhole_mass
-        edd_ratio = self.edd_ratio
-        a =  -452437 * bh_mass + -701078 * edd_ratio + 3432715
+        bh_mass = self.blackhole_mass.value
+        edd_ratio = self.edd_ratio.value
+        a =  -452437 * bh_mass - 701078 * edd_ratio + 3432715
         c = 88 * bh_mass + 32186 * edd_ratio - 6456
         d = 303617 * bh_mass + 2608280 * edd_ratio - 2351906
         return [a, c, d]
