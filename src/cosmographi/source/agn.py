@@ -61,14 +61,14 @@ class AGNSource(TransientSource):
         jnp.ndarray
             Luminosity density array.
         """
-        if not z == 0.1:
-            raise NotImplementedError("The current AGN model is only for redshift 0.1. Please choose z=0.1.")
+        if not z == 0.000000002369:
+            raise NotImplementedError("The current AGN model is only for redshift 0.000000002369. Please choose z=0.000000002369.")
         if not jnp.all(338 <= w <= 395):
             raise NotImplementedError("The curent AGN model is only for passband u. Please choose a value between " \
             "338 and 395 nm.")
         flux = self.get_flux(w, t)
         flux_W_per_m2_Hz = flux * 10 ** (-35)
-        distance_parsec = self.cosmology.luminosity_distance(z) * Mpc_to_cm 
+        distance_parsec = 10
         distance_metre = distance_parsec * 3.086e+16
         luminosity_density = flux_W_per_m2_Hz * 4 * jnp.pi * distance_metre**2
         return luminosity_density
@@ -81,7 +81,7 @@ class AGNSource(TransientSource):
         ----------
         w: jnp.ndarray
             Wavelength array (nm) of the rest frame.
-        t: float
+        t: jnp.ndarray
             Time of observation (MJD).
 
         Returns
@@ -92,17 +92,18 @@ class AGNSource(TransientSource):
         if not jnp.all((338 <= w) & (w <= 395)):
             raise NotImplementedError("The curent AGN model is only for passband u. Please choose a value between " \
             "338 and 395 nm.")
-        a, c, d = self.get_parameters()
-        return a * jnp.sin(t - c) + d
+        a,b, c, d = self.get_parameters()
+        return jnp.exp(a * jnp.sin( b * (t - c)) + d)
 
     def get_parameters(self) -> list[float]:
         """ Get the parameters of the sine function based on the black hole mass and eddington ratio. """
         bh_mass = self.blackhole_mass.value
         edd_ratio = self.edd_ratio.value
-        a =  -452437 * bh_mass - 701078 * edd_ratio + 3432715
-        c = 88 * bh_mass + 32186 * edd_ratio - 6456
-        d = 303617 * bh_mass + 2608280 * edd_ratio - 2351906
-        return [a, c, d]
+        a =  -3.6379 * bh_mass + 0.953 * edd_ratio + 0.8349
+        b =  0.0 * bh_mass + 0.0001 * edd_ratio + 0.0002
+        c = 0.4285 * bh_mass + 3.3066 * edd_ratio -2.3468
+        d = 2.5053 * bh_mass - 1.7961 * edd_ratio + 0.2613
+        return [a, b, c, d]
 
 
 
