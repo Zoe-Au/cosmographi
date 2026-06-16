@@ -9,13 +9,12 @@ from .base import TransientSource
 from ..utils import flux
 from ..utils.constants import Mpc_to_cm
 from typing import Any
+import pickle
 
 
 
 class AGNSource(TransientSource):
-    """
-    An AGN source model generated through damped random walk.
-
+    """ An AGN source. WIP Model, do not use.
     Parameters
     ---------- 
     cosmology: Cosmology. 
@@ -106,7 +105,60 @@ class AGNSource(TransientSource):
         return [a, b, c, d]
 
 
+class AGNSourceAGNFitter(TransientSource):
+    """ An AGN source. WIP Model, do not use.
+    Parameters
+    ---------- 
+    cosmology: Cosmology. 
+        Optional. If given, it can be used to compute the distance modulus from the redshift.
+    name: str. 
+        Optional. Name of the source.
+    blackhole_mass: float. 
+        Mass of the black hole in solar masses #TODO: change units
+    edd_ratio: float. 
+        Eddington ratio of the black hole #TODO: add units.
+    sfh_tau:
+        Star formation tau parameter
+    nh_value:
+        NH collumn density of the torus.
+    irlum:
+        cold dust emission parametrization
+    """
+    name: str
+    cosmology: Cosmology
+    logBHmass: float
+    logEddra: float
+    tau: float
+    Nh: float
+    irlum: float
+    age: float
 
+    def __init__(self, cosmology: Cosmology = None, name: str = None, blackhole_mass: float = None, 
+                 edd_ratio: float = None, sfh_tau: float = None, nh_value: float = None, 
+                 irlum: float = None, age: float = None, **kwargs) -> None:
+        super().__init__(cosmology=cosmology, name=name, **kwargs)
+        self.logBHmass = blackhole_mass
+        self.logEddra = edd_ratio
+        self.tau = sfh_tau
+        self.Nh = nh_value
+        self.irlum = irlum
+        self.age = age
+    
+    def get_luminosity_density(self, z: float, t: float, w: jnp.ndarray) -> jnp.ndarray:
+        """ Compute the luminosity density of the AGN source at a given wavelengths <w> and time <t>
+        """
+        w_res = w/(z + 1)
+        with open("knn_pipeline.pkl", "rb") as f:
+            pipeline = pickle.load(f)
+        params = self._get_param_values_nan()
+        return pipeline.predict(w_res + params)
 
-
+    def _get_param_values_nan(self) -> list:
+        """Return the parameter values of this AGN, wogh missing ones replaced by jnp.nan"""
+        params = [self.logBHmass = blackhole_mass, self.logEddra = edd_ratio, self.age = age, 
+                  self.tau = sfh_tau, self.irlum = irlum, self.Nh = nh_value]
+        for i in range(len(params)):
+            if params[i] in None:
+                params[i] = jnp.nan
+        return jnp.ndarray(params)
 
