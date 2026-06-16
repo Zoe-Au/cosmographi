@@ -10,6 +10,9 @@ from ..utils import flux
 from ..utils.constants import Mpc_to_cm
 from typing import Any
 import pickle
+import agnSED
+from agnSED.photometry import Photometric
+from ..utils.constants import c_nm
 
 
 
@@ -144,7 +147,7 @@ class AGNSourceAGNFitter(TransientSource):
         self.irlum = irlum
         self.age = age
     
-    def get_luminosity_density(self, z: float, t: float, w: jnp.ndarray) -> jnp.ndarray:
+    def luminosity_density(self, z: float, t: float, w: jnp.ndarray) -> jnp.ndarray:
         """ Compute the luminosity density of the AGN source at a given wavelengths <w> and time <t>
         """
         w_res = w/(z + 1)
@@ -161,4 +164,53 @@ class AGNSourceAGNFitter(TransientSource):
             if params[i] in None:
                 params[i] = jnp.nan
         return jnp.ndarray(params)
+    
+class AGNSourceTong2026(TransientSource):
+    """ create an AGN source whose SED is modelled according to 
+    https://iopscience.iop.org/article/10.3847/1538-4357/ae41bd/pdf 
+
+    Parameters
+    ---------- 
+    cosmology: Cosmology. 
+        Optional. If given, it can be used to compute the distance modulus from the redshift.
+    name: str. 
+        Optional. Name of the source.
+    blackhole_mass: float. 
+        Mass of the black hole in solar masses 
+    accretion_rate: float. 
+        Accretion rate of the black hole 
+    """
+    name: str
+    cosmology: Cosmology
+    blackhole_mass: Param
+    accretion_rate: Param
+
+    def __init__(self, cosmology: Cosmology = None, name: str = None, blackhole_mass: float = None, 
+                 edd_ratio: float = None, **kwargs) -> None:
+        super().__init__(cosmology=cosmology, name=name, **kwargs)
+        self.blackhole_mass = Param("blackhole_mass", blackhole_mass, shape=(), 
+                                   description="Mass of the black hole", units="solar masses")
+        self.accretion_rate = Param("accretion_rate", accretion_rate, shape=(), 
+                                   description="Eddington ratio of the black hole", units="dimensionless")  
+        
+    @forward
+    def luminosity_density(self, start: float, end: float, z: float) -> None:
+        """ Return the luminosity density between wavelengths <start> and <end> and at redshift <z>.
+        #TODO include time (+ perturbations?)
+        Note: Remeber agnSED takes it in the frecuency domain
+
+        Preconditions:
+             - <start> and <end> are assumed to be in nm
+        """
+        # transforming the wavelengths to at-observer wavelengths (accounting for redshift)
+        start_source = start/(z + 1)
+        end_source = end/(z + 1)
+        start_source_freq = c_nm / start_source
+        end_source_freq = c_nm / end_source
+        params = np.asarray([[np.log10(self.blackhole_mass), np.log10(self.accretion_rate)]])
+        return Photometric(params, [np.log10(start_source_freq), np.log10(end_source_freq)])
+
+        
+
+    
 
