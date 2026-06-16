@@ -164,7 +164,7 @@ class AGNSourceAGNFitter(TransientSource):
             if params[i] in None:
                 params[i] = jnp.nan
         return jnp.ndarray(params)
-    
+
 class AGNSourceTong2026(TransientSource):
     """ create an AGN source whose SED is modelled according to 
     https://iopscience.iop.org/article/10.3847/1538-4357/ae41bd/pdf 
