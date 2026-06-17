@@ -45,6 +45,7 @@ __all__ = (
     "StaticSource",
     "effects",
     "AGNSource",
+    "AGNSourceTong2026",
     "SALT2_2021",
     "source_factory",
     "StaticBlackbody",

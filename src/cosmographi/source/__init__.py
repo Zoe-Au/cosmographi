@@ -9,6 +9,7 @@ __all__ = (
     "TransientBlackbody",
     "source_factory",
     "AGNSource",
+    "AGNSourceTong2026",
     "SALT2_2021",
     "effects",
     "prior",
