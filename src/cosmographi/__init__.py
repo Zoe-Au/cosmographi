@@ -19,7 +19,6 @@ from . import (
 from .rates import Rate, RateConst, RateInterp, CombinedRate
 from .source import (
     Source,
-    AGNSourceThinDisk,
     TransientSource,
     StaticSource,
     effects,

@@ -12,17 +12,9 @@ from typing import Any
 import pickle
 import agnSED
 from agnSED.photometry import Photometric
-from ..utils.constants import c_nm
+from ..utils.constants import c_nm, c_m, G, sigma, h_m2kg, k_m2kgsminus2
 from scipy.integrate import quad
-
-#TODO add them to cosmographi.utils.constants
-pi = np.pi
-G = 6.6743 * 10e-11  # m3⋅kg−1⋅s−2
-sigma =  5.670374419 * 10e-8 #  Stephan-Boltzman constant (sigma) = 5.670374419 × 10⁻⁸ W⋅m⁻²⋅K⁻
-h = 6.62607015 * 10e-34 #m2 kg / s planck's constant
-k = 1.380649 * 10e-23 # m2 kg s-2 K-1  boltzman constant
-M_sun = 1.98847e30      # kg
-
+from numpy import pi
 
 class AGNSource(TransientSource):
     """ An AGN source. WIP Model, do not use.
@@ -228,7 +220,7 @@ def temp(R: float, mass: float, acc_rate: float, r_star: float) -> float:
     return (first_prod * second_prod) ** (1/4)
 
 def _integrand_funct(R: float, freq: float, mass: float, acc_rate: float, r_star: float) -> float:
-    return R / (np.exp(h*freq/k/temp(R, mass, acc_rate, r_star)) - 1)
+    return R / (np.exp(h_m2kg*freq/k_m2kgsminus2/temp(R, mass, acc_rate, r_star)) - 1)
 
 class AGNSourceThinDisk(TransientSource):
     """ create an AGN source whose SED is modelled according to the thin disk model
@@ -239,10 +231,16 @@ class AGNSourceThinDisk(TransientSource):
         Optional. If given, it can be used to compute the distance modulus from the redshift.
     name: str. 
         Optional. Name of the source.
-    blackhole_mass: float. 
-        Mass of the black hole in solar masses 
-    accretion_rate: float. 
+    blackhole_mass: Param(float). 
+        Mass of the black hole in **KG**
+    accretion_rate: Param(float). 
         Accretion rate of the black hole 
+    inclination_angle: Param(float)
+        Inclination angle of the AGN with respect to the observer. The oberver's line of sight makes an angle i 
+        to the normal to the disc plane. In radians. 
+    r_star: Param(float)
+        inner radius of the thin disk, smallest radius from which heat radiates. We assume it to be the innermost 
+        stable circular orbit (ISCO), since we assume a non-rotating black hole.
     """
     name: str
     cosmology: Cosmology
@@ -255,7 +253,7 @@ class AGNSourceThinDisk(TransientSource):
                  accretion_rate: float = None,inclination_angle: float = None, r_star: float = None, **kwargs) -> None:
         super().__init__(cosmology=cosmology, name=name, **kwargs)
         self.blackhole_mass = Param("blackhole_mass", blackhole_mass, shape=(), 
-                                   description="Mass of the black hole", units="solar masses")
+                                   description="Mass of the black hole", units="kg")
         self.accretion_rate = Param("accretion_rate", accretion_rate, shape=(), 
                                    description="accretion_rate of the black hole", units="dimensionless")
         self.inclination_angle = Param("inclination_angle", inclination_angle, units="radians", description="inclination angle of the AGN with respect to the observer")
@@ -265,13 +263,6 @@ class AGNSourceThinDisk(TransientSource):
     @forward
     def flux_density(self, freq: float, luminosity_distance: float, inclination_angle=None, blackhole_mass=None, accretion_rate=None, r_star=None) -> float:
         """ Calculate the flux at a specific frecuency for a specific agn"""
-        # inclination_angle, mass, acc_rate, r_star = self.inclination_angle, self.blackhole_mass, self.accretion_rate, self.r_star
-        pi = np.pi
-        G = 6.6743 * 10e-11  # m3⋅kg−1⋅s−2
-        sigma =  5.670374419 * 10e-8 #  Stephan-Boltzman constant (sigma) = 5.670374419 × 10⁻⁸ W⋅m⁻²⋅K⁻
-        h = 6.62607015 * 10e-34 #m2 kg / s planck's constant
-        k = 1.380649 * 10e-23 # m2 kg s-2 K-1  boltzman constant
-        M_sun = 1.98847e30      # kg
         # we assume R∗​=RISCO​=6GM​/c**2
         first_prod = 4*pi*h*np.cos(inclination_angle)*freq**3/c_m**2 / luminosity_distance**2
         # assume R_out is 10**4 * r_star
