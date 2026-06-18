@@ -213,6 +213,76 @@ class AGNSourceTong2026(TransientSource):
         lognu0, lognu1 = sorted([np.log10(start_source_freq), np.log10(end_source_freq)])
         return Photometric(params, lognu0, lognu1)
 
+def temp(R: float, mass: float, acc_rate: float, r_star: float) -> float:
+    """ Return the temperature at distance <R> for an AGN of <mass> and accretion rate <acc_rate>"""
+    first_prod = 3 * G * mass * acc_rate / 8 /pi / R**3 / sigma
+    second_prod = 1 - (r_star / R) ** (1/2)
+    return (first_prod * second_prod) ** (1/4)
+    
+
+class AGNSourceThinDisk(TransientSource):
+    """ create an AGN source whose SED is modelled according to the thin disk model
+
+    Parameters
+    ---------- 
+    cosmology: Cosmology. 
+        Optional. If given, it can be used to compute the distance modulus from the redshift.
+    name: str. 
+        Optional. Name of the source.
+    blackhole_mass: float. 
+        Mass of the black hole in solar masses 
+    accretion_rate: float. 
+        Accretion rate of the black hole 
+    """
+    name: str
+    cosmology: Cosmology
+    blackhole_mass: float
+    accretion_rate: float
+    inclination_angle: float
+
+    def __init__(self, cosmology: Cosmology = None, name: str = None, blackhole_mass: float = None, 
+                 accretion_rate: float = None,inclination_angle: float = None, r_star: float = None, **kwargs) -> None:
+        super().__init__(cosmology=cosmology, name=name, **kwargs)
+        # self.blackhole_mass = Param("blackhole_mass", blackhole_mass, shape=(), 
+        #                            description="Mass of the black hole", units="solar masses")
+        # self.accretion_rate = Param("accretion_rate", accretion_rate, shape=(), 
+        #                            description="accretion_rate of the black hole", units="dimensionless")  
+        self.blackhole_mass = blackhole_mass
+        self.accretion_rate = accretion_rate
+        self.inclination_angle = inclination_angle
+        self.r_star = r_star
+
+    
+    def flux_density(self, freq: float, luminosity_distance: float) -> float:
+        """ Calculate the flux at a specific frecuency for a specific agn"""
+        inclination_angle, mass, acc_rate, r_star = self.inclination_angle, self.blackhole_mass, self.accretion_rate, self.r_star
+        pi = np.pi
+        G = 6.6743 * 10e-11  # m3⋅kg−1⋅s−2
+        sigma =  5.670374419 * 10e-8 #  Stephan-Boltzman constant (sigma) = 5.670374419 × 10⁻⁸ W⋅m⁻²⋅K⁻
+        h = 6.62607015 * 10e-34 #m2 kg / s planck's constant
+        k = 1.380649 * 10e-23 # m2 kg s-2 K-1  boltzman constant
+        M_sun = 1.98847e30      # kg
+        # we assume R∗​=RISCO​=6GM​/c**2
+        first_prod = 4*pi*h*np.cos(inclination_angle)*freq**3/c_m**2 / luminosity_distance**2
+        # assume R_out is 10**4 * r_star
+        second_prod = quad(_integrand_funct, r_star, 10**4 * r_star, args=(freq,mass,acc_rate,r_star))[0]
+        return first_prod * second_prod 
+        
+    # @forward
+    def luminosity_density(self, w: float, z: float) -> float:
+        """ Return the luminosity density between wavelengths <start> and <end> and at redshift <z>.
+        #TODO include time 
+        <w> is the wavelength IN METRES
+        """
+        # transforming the wavelengths to at-observer wavelengths (accounting for redshift)
+        w_rest = w/(z + 1)
+        freq_rest = c_m/w_rest
+        distance_parsec = 10 # for standard
+        luminosity_distance = distance_parsec * 3.086e+16
+        flux = self.flux_density(freq_rest, luminosity_distance)
+        luminosity_density = flux * 4 * jnp.pi * luminosity_distance **2
+        return luminosity_density
+
         
 
     
