@@ -337,9 +337,7 @@ class AGNSourceThinDisk(TransientSource):
         every <time_res> and between <start_w> and <end_w>, with a sample every <w_res>. the resulting grid is stored 
         in self.grid as a jnp.ndarray
         same collumn = same wavelength, same row = same time
-
         TImes are in MJD and wavelengths in metres.
-
         """
         self.grid_w_chars = (start_w, end_w, w_res)
         self.grid_t_chars = (start_time, end_time, time_res)
@@ -356,9 +354,7 @@ class AGNSourceThinDisk(TransientSource):
     def luminosity_density(self, wavelengths: jnp.ndarray, times: jnp.ndarray) -> jnp.ndarray:
         """Approximate the luminosity at time <t> (MJD) and wavelength <w> (in metres). The approximation is done by taking an 
         average of the four points that result from rounding up and down both w and t.
-
         same collumn = same wavelength, same row = same time
-
         """
         rows = []
         for t in times:
@@ -374,12 +370,10 @@ class AGNSourceThinDisk(TransientSource):
                 row_lower = floor((t - self.grid_t_chars[0])/self.grid_t_chars[2])
                 col_upper = ceil((w - self.grid_w_chars[0])/self.grid_w_chars[2])
                 col_lower = floor((w - self.grid_w_chars[0])/self.grid_w_chars[2])
-
-                print(f"row_upper={row_upper}", f"row_lower = {row_lower}", f"col_upper={col_upper}", f"col_lower={col_lower}")
-
                 row.append((self.grid[row_upper][col_upper] + self.grid[row_upper][col_lower] + self.grid[row_lower][col_upper] + 
                         self.grid[row_lower][col_lower])/4)
             rows.append(row)
         return jnp.asarray(rows)
     # TODO: The handling of start - end not being a multiple of the resolution may not be being handled
     # TODO: Not handling correctly when one fo the queryed time/ wavelengths is represented in the grid
+    
