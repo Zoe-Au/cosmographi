@@ -158,12 +158,12 @@ class AGNSourceAGNFitter(TransientSource):
 
     def _get_param_values_nan(self) -> list:
         """Return the parameter values of this AGN, wogh missing ones replaced by jnp.nan"""
-        params = [self.logBHmass = blackhole_mass, self.logEddra = edd_ratio, self.age = age, 
-                  self.tau = sfh_tau, self.irlum = irlum, self.Nh = nh_value]
+        params = [self.logBHmass, self.logEddra, self.age, self.tau, self.irlum, self.Nh]
         for i in range(len(params)):
             if params[i] in None:
                 params[i] = jnp.nan
         return jnp.ndarray(params)
+
 
 class AGNSourceTong2026(TransientSource):
     """ create an AGN source whose SED is modelled according to 
@@ -182,18 +182,20 @@ class AGNSourceTong2026(TransientSource):
     """
     name: str
     cosmology: Cosmology
-    blackhole_mass: Param
-    accretion_rate: Param
+    blackhole_mass: float
+    accretion_rate: float
 
     def __init__(self, cosmology: Cosmology = None, name: str = None, blackhole_mass: float = None, 
                  accretion_rate: float = None, **kwargs) -> None:
         super().__init__(cosmology=cosmology, name=name, **kwargs)
-        self.blackhole_mass = Param("blackhole_mass", blackhole_mass, shape=(), 
-                                   description="Mass of the black hole", units="solar masses")
-        self.accretion_rate = Param("accretion_rate", accretion_rate, shape=(), 
-                                   description="accretion_rate of the black hole", units="dimensionless")  
+        # self.blackhole_mass = Param("blackhole_mass", blackhole_mass, shape=(), 
+        #                            description="Mass of the black hole", units="solar masses")
+        # self.accretion_rate = Param("accretion_rate", accretion_rate, shape=(), 
+        #                            description="accretion_rate of the black hole", units="dimensionless")  
+        self.blackhole_mass = blackhole_mass
+        self.accretion_rate = accretion_rate
         
-    @forward
+    # @forward
     def luminosity_density(self, start: float, end: float, z: float) -> None:
         """ Return the luminosity density between wavelengths <start> and <end> and at redshift <z>.
         #TODO include time (+ perturbations?)
@@ -208,7 +210,8 @@ class AGNSourceTong2026(TransientSource):
         start_source_freq = c_nm / start_source
         end_source_freq = c_nm / end_source
         params = np.asarray([[np.log10(self.blackhole_mass), np.log10(self.accretion_rate)]])
-        return Photometric(params, [np.log10(start_source_freq), np.log10(end_source_freq)])
+        lognu0, lognu1 = sorted([np.log10(start_source_freq), np.log10(end_source_freq)])
+        return Photometric(params, lognu0, lognu1)
 
         
 
