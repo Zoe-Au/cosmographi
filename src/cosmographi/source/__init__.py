@@ -10,6 +10,7 @@ __all__ = (
     "source_factory",
     "AGNSource",
     "AGNSourceTong2026",
+    "AGNSourceThinDisk",
     "SALT2_2021",
     "effects",
     "prior",

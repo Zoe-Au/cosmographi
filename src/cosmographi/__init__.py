@@ -19,6 +19,7 @@ from . import (
 from .rates import Rate, RateConst, RateInterp, CombinedRate
 from .source import (
     Source,
+    AGNSourceThinDisk,
     TransientSource,
     StaticSource,
     effects,
@@ -46,6 +47,7 @@ __all__ = (
     "effects",
     "AGNSource",
     "AGNSourceTong2026",
+    "AGNSourceThinDisk",
     "SALT2_2021",
     "source_factory",
     "StaticBlackbody",
