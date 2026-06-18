@@ -269,19 +269,15 @@ class AGNSourceThinDisk(TransientSource):
         second_prod = quad(_integrand_funct, r_star, 10**4 * r_star, args=(freq,blackhole_mass,accretion_rate,r_star))[0]
         return first_prod * second_prod 
         
-    def luminosity_density(self, w: float, z: float) -> float:
+    def luminosity_density(self, w: float) -> float:
         """ Return the luminosity density between wavelengths <start> and <end> and at redshift <z>.
         #TODO include time 
-        <w> is the wavelength IN METRES
+        <w> is the wavelength IN METRES at the rest frame
         """
-        # transforming the wavelengths to at-observer wavelengths (accounting for redshift)
-        w_rest = w/(z + 1)
-        freq_rest = c_m/w_rest
+        freq_rest = c_m/w
         distance_parsec = 10 # for standard
         luminosity_distance = distance_parsec * 3.086e+16
         flux = self.flux_density(freq=freq_rest, luminosity_distance=luminosity_distance)
         luminosity_density = flux * 4 * jnp.pi * luminosity_distance **2
         return luminosity_density        
-
-    
 
