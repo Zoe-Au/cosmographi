@@ -281,6 +281,6 @@ class AGNSourceThinDisk(TransientSource):
         # TODO: Is there a tidier way of doing it? in_axes wasn't working...
         def getting_base_luminosity_fixed_points(x):
             return self.base_luminosity_density(x, num_integration_points=integration_points)
-        base_luminosity = jax.vmap(self.base_luminosity_density)(w=w)
+        base_luminosity = jax.vmap(getting_base_luminosity_fixed_points)(x=w)
         perturbation = jnp.interp(t, self.times, perturbations) # linearly interpolate perturbations
         return base_luminosity[None, :] * perturbation[:, None]
