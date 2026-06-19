@@ -9,8 +9,12 @@ import pickle
 import numpy as np
 from agnSED.photometry import Photometric
 from ..utils.constants import c_nm, c_m, G, sigma, h_m2kg, k_m2kgsminus2
+from .func import temperature, integrand_funct
 from jax.scipy.integrate import trapezoid
 import jax
+
+
+ABSOLUTE_FLUX_TO_LUM_DENSITY = (10 * 3.086e+16) **2 * jnp.pi * 4
 
 class AGNSource(TransientSource):
     """ An AGN source. WIP Model, do not use.
@@ -208,43 +212,6 @@ class AGNSourceTong2026(TransientSource):
         params = np.asarray([[np.log10(self.blackhole_mass), np.log10(self.accretion_rate)]])
         lognu0, lognu1 = sorted([np.log10(start_source_freq), np.log10(end_source_freq)])
         return Photometric(params, lognu0, lognu1)
-    
-# ----------------------------- Thin disk --------------------------------    
-
-# TODO: make them methods?
-def temp(R: float, mass: float, acc_rate: float, r_star: float) -> float:
-    """ Return the temperature at distance <R> for an AGN of <mass> and accretion rate <acc_rate>"""
-    first_prod = 3 * G * mass * acc_rate / 8 /jnp.pi / R**3 / sigma
-    second_prod = 1 - (r_star / R) ** (1/2)
-    return (first_prod * second_prod) ** (1/4)
-
-def _integrand_funct(R: float, freq: float, mass: float, acc_rate: float, r_star: float) -> float:
-    return R / (jnp.exp(h_m2kg*freq/k_m2kgsminus2/temp(R, mass, acc_rate, r_star)) - 1)
-
-def GridNotComputedError(Exception):
-    print("The model was not applied correctly. Please compute the grid correctly using the load_luminosity function.")
-
-#TODO: Rewrite it!
-def generate_random_field(alpha, n_samples, sample_rate=1.0):
-    """
-    Generates 1D colored noise and plots the transformation steps.
-
-    Parameters:
-    alpha (float): The frequency scaling parameter.
-    n_samples (int): Number of data points to generate.
-    sample_rate (float): Assumed sample rate for frequency calculation.
-    """
-    white_noise = np.random.normal(0, 1, n_samples)
-    fft_white = jnp.fft.rfft(white_noise)
-    frequencies = jnp.fft.rfftfreq(n_samples, d=1/sample_rate)
-    # Ignore divide by zero for the DC component (f=0)
-    with np.errstate(divide='ignore', invalid='ignore'):
-        # Amplitude scales as 1/f^(alpha/2)
-        scaling_factor = 1.0 / (frequencies ** (alpha / 2.0))
-    scaling_factor = scaling_factor.at[0].set(0.0)
-    fft_colored = fft_white * scaling_factor
-    colored_noise = jnp.fft.irfft(fft_colored, n=n_samples)
-    return colored_noise
 
 
 class AGNSourceThinDisk(TransientSource):
@@ -269,22 +236,26 @@ class AGNSourceThinDisk(TransientSource):
     grid: jnp.ndarray | None
         An array containing the calculated values for the luminosity grid. COmputed during load_luminosity. 
     grid_w_chars: tuple[float] | None
-        A tuple containing, in that order, the start wavelength, end wavelength, and wavelength in between sampling from self.grid
-    grid_t_chars: tuple[float] | None
-        A tuple containing, in that order, the start time, end time, and time in between sampling from self.grid
+        A tuple containing, in that order, the start wavelength, end wavelength, and the number of wavelengths recorded in self.grid
+    times: jnp.ndarray[float] | None
+        A vector of length equal to <time_perturbations> whose values equal to the times represented by <time_perturbations>.
+    time_perturbations: jnp.ndarray[float] | None
+        An array containing all of the values the base luminosities will be multiplied by to cause variability with respect to time. 
+        It slength will determine the number of timepoints we will have in the grid. 
     """
     name: str
     cosmology: Cosmology
-    blackhole_mass: Param
-    accretion_rate: Param
-    inclination_angle: Param
-    r_star: Param
-    grid: jnp.ndarray | None 
+    blackhole_mass: float 
+    accretion_rate: float
+    inclination_angle: float
+    r_star: float
+    w_grid: jnp.ndarray | None 
     grid_w_chars: tuple[float] | None
-    grid_t_chars: tuple[float] | None
+    times: jnp.ndarray
+    perturbations: jnp.ndarray
 
-    def __init__(self, cosmology: Cosmology = None, name: str = None, blackhole_mass: float = None, 
-                 accretion_rate: float = None,inclination_angle: float = None, r_star: float = None, **kwargs) -> None:
+    def __init__(self, cosmology: Cosmology = None, name: str = None, blackhole_mass: float = None, accretion_rate: float = None, inclination_angle: float = None, 
+                 r_star: float = None, perturbations_ar: jnp.ndarray = None, start_time: float = None, end_time: float = None, **kwargs) -> None:
         super().__init__(cosmology=cosmology, name=name, **kwargs)
         self.blackhole_mass = Param("blackhole_mass", blackhole_mass, shape=(), 
                                    description="Mass of the black hole", units="solar masses")
@@ -292,81 +263,31 @@ class AGNSourceThinDisk(TransientSource):
                                    description="accretion_rate of the black hole", units="dimensionless")
         self.inclination_angle = Param("inclination_angle", inclination_angle, units="radians", description="inclination angle of the AGN with respect to the observer")
         self.r_star = Param("r_sar", r_star, units="metres", description="inner radius of the thin disk, smallest radius from which heat radiates")
-        self.grid = None
+        self.perturbations = Param("perturbations", perturbations_ar, units="dimentionless", shape=(len(perturbations_ar), ), description="a vector containing all of the numbers the base luminosities will be " \
+        "multiplied by. Cause the variability with respect to time. Its length will determine the number of time points queried.")
+        self.times = jnp.linspace(start_time, end_time, len(perturbations_ar))
     
     @forward
-    def flux_density(self, freq: float, luminosity_distance: float, num_integration_points: int = 1000, 
-                     inclination_angle=None, blackhole_mass=None, accretion_rate=None, r_star=None) -> float:
+    def base_luminosity_density(self, w: float, num_integration_points: int = 1000, inclination_angle=None, blackhole_mass=None, accretion_rate=None, r_star=None) -> float:
         """ Calculate the flux at a specific frecuency for a specific agn"""
-        # inclination_angle, mass, acc_rate, r_star = self.inclination_angle, self.blackhole_mass, self.accretion_rate, self.r_star
-        G = 6.6743 * 10e-11  # m3⋅kg−1⋅s−2
-        sigma =  5.670374419 * 10e-8 #  Stephan-Boltzman constant (sigma) = 5.670374419 × 10⁻⁸ W⋅m⁻²⋅K⁻
-        h = 6.62607015 * 10e-34 #m2 kg / s planck's constant
-        k = 1.380649 * 10e-23 # m2 kg s-2 K-1  boltzman constant
-        M_sun = 1.98847e30      # kg
+        freq = c_m/w
         # we assume R∗​=RISCO​=6GM​/c**2
-        first_prod = 4*jnp.pi*h*jnp.cos(inclination_angle)*freq**3/c_m**2 / luminosity_distance**2
+        first_prod = 4*jnp.pi*h_m2kg*jnp.cos(inclination_angle)*freq**3/c_m**2 / (10 * 3.086e+16)**2
         # assume R_out is 10**4 * r_star
         r_seq = jnp.linspace(r_star, 10**4 * r_star, num_integration_points)
-        y_seq = _integrand_funct(R=r_seq, freq=freq, mass=blackhole_mass, acc_rate=accretion_rate, r_star=r_star)
+        y_seq = integrand_funct(R=r_seq, freq=freq, mass=blackhole_mass, acc_rate=accretion_rate, r_star=r_star)
         second_prod = trapezoid(y_seq, r_seq)
-        return first_prod * second_prod 
-        
-    def get_base_luminosity_density(self, w: jnp.ndarray) -> jnp.ndarray:
-        """ Return the luminosity density between wavelengths <start> and <end> and at redshift <z>.
-        #TODO include time 
-        <w> is the wavelength IN METRES of the rest frame
-        """
-        freq_rest = c_m/w
-        freq_rest = freq_rest
-        distance_parsec = 10 # for standard
-        luminosity_distance = distance_parsec * 3.086e+16
-        flux = self.flux_density(freq=freq_rest, luminosity_distance=luminosity_distance)
-        luminosity_density = flux * 4 * jnp.pi * luminosity_distance **2
+        flux = first_prod * second_prod 
+        luminosity_density = flux * ABSOLUTE_FLUX_TO_LUM_DENSITY
         return luminosity_density
-
-    def load_luminosity(self, start_time: float, end_time: float, start_w: float, end_w: float, time_res: float, w_res: float) -> None:
-        """Create the grid we will then interpolate from, between <start_time> and <end_time>, with a time sample 
-        every <time_res> and between <start_w> and <end_w>, with a sample every <w_res>. the resulting grid is stored 
-        in self.grid as a jnp.ndarray
-        same collumn = same wavelength, same row = same time
-        TImes are in MJD and wavelengths in metres.
-        """
-        self.grid_w_chars = (start_w, end_w, w_res)
-        self.grid_t_chars = (start_time, end_time, time_res)
-        num_time_steps = int(abs(start_time - end_time)/ time_res) + 1
-        noise = generate_random_field(1.0, num_time_steps, time_res)
-        wavelengths = jnp.arange(start_w, end_w + w_res, w_res)
-        base_luminosity = jax.vmap(self.get_base_luminosity_density)(wavelengths)
-        self.grid = base_luminosity[None, :] + noise[:, None]
     
-    def interpolate_luminosity_density(self, w: float, t: float) -> float:
+    @forward
+    def luminosity_density(self, w: jnp.ndarray, t: jnp.ndarray, integration_points: int = 1000, perturbations=None) -> jnp.ndarray:
         """ Interpolate the luminosity density for a single w and t using this AGN's loaded grid."""
-        if self.grid is None or self.grid_w_chars is None or self.grid_t_chars is None:
-            raise GridNotComputedError
-        row_upper = jnp.ceil((t - self.grid_t_chars[0])/self.grid_t_chars[2]).astype(int)
-        row_lower = jnp.floor((t - self.grid_t_chars[0])/self.grid_t_chars[2]).astype(int)
-        col_upper = jnp.ceil((w - self.grid_w_chars[0])/self.grid_w_chars[2]).astype(int)
-        col_lower = jnp.floor((w - self.grid_w_chars[0])/self.grid_w_chars[2]).astype(int)
-        return (self.grid[row_upper, col_upper] + self.grid[row_upper, col_lower] + self.grid[row_lower, col_upper] + 
-                        self.grid[row_lower, col_lower])/4
-
-    def luminosity_density(self, wavelengths: jnp.ndarray, times: jnp.ndarray) -> jnp.ndarray:
-        """Approximate the luminosity at time <t> (MJD) and wavelength <w> (in metres). The approximation is done by taking an 
-        average of the four points that result from rounding up and down both w and t.
-
-        same collumn = same wavelength, same row = same time
-        """
-        if self.grid is None or self.grid_w_chars is None or self.grid_t_chars is None:
-            raise GridNotComputedError
-        if not (jnp.all(times >= self.grid_t_chars[0]) and jnp.all(times <= self.grid_t_chars[1])):
-            raise ValueError("Queryied time must be in between the minimum and maximum times passed when loading the model")
-        if not (jnp.all(wavelengths >= self.grid_w_chars[0]) and jnp.all(wavelengths <= self.grid_w_chars[1])):
-            raise ValueError("Queryied wavelength must be in between the minimum and maximum wavelengths passed when loading the model")
-        varying_in_wavelength = jax.vmap(self.interpolate_luminosity_density, in_axes=(None, 0))        
-        varying_in_both = jax.vmap(varying_in_wavelength, in_axes=(0, None))   
-        return varying_in_both(wavelengths, times)
-    
-    # TODO: The handling of start - end not being a multiple of the resolution may not be being handled
-    # TODO: Not handling correctly when one fo the queryed time/ wavelengths is represented in the grid
-    
+        # TODO: Is there a tidier way of doing it? in_axes wasn't working...
+        def getting_base_luminosity_fixed_points(x):
+            return self.base_luminosity_density(x, num_integration_points=integration_points)
+        base_luminosity = jax.vmap(self.base_luminosity_density)(w=w)
+        print(type(self.times))
+        perturbation = jnp.interp(t, self.times, perturbations) # linearly interpolate perturbations
+        return base_luminosity[None, :] * perturbation[:, None]
