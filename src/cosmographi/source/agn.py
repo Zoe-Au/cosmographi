@@ -278,9 +278,9 @@ class AGNSourceThinDisk(TransientSource):
     @forward
     def luminosity_density(self, w: jnp.ndarray, t: jnp.ndarray, integration_points: int = 1000, perturbations=None) -> jnp.ndarray:
         """ Interpolate the luminosity density for a all combinations of the elements in <w> and <t>."""
-        # TODO: Is there a tidier way of doing it? in_axes wasn't working...
-        def getting_base_luminosity_fixed_points(x):
-            return self.base_luminosity_density(x, num_integration_points=integration_points)
-        base_luminosity = jax.vmap(getting_base_luminosity_fixed_points)(x=w)
+        # def getting_base_luminosity_fixed_points(x):
+        #     return self.base_luminosity_density(x, num_integration_points=integration_points)
+        # base_luminosity = jax.vmap(getting_base_luminosity_fixed_points)(x=w)
+        base_luminosity = jax.vmap(self.base_luminosity_density, in_axes=(0, None))(w, integration_points)
         perturbation = jnp.interp(t, self.times, perturbations) # linearly interpolate perturbations
         return base_luminosity[None, :] * perturbation[:, None]
