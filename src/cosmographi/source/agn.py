@@ -233,10 +233,6 @@ class AGNSourceThinDisk(TransientSource):
     r_star: Param(float)
         inner radius of the thin disk, smallest radius from which heat radiates. We assume it to be the innermost 
         stable circular orbit (ISCO), since we assume a non-rotating black hole.
-    grid: jnp.ndarray | None
-        An array containing the calculated values for the luminosity grid. COmputed during load_luminosity. 
-    grid_w_chars: tuple[float] | None
-        A tuple containing, in that order, the start wavelength, end wavelength, and the number of wavelengths recorded in self.grid
     times: jnp.ndarray[float] | None
         A vector of length equal to <time_perturbations> whose values equal to the times represented by <time_perturbations>.
     time_perturbations: jnp.ndarray[float] | None
@@ -249,8 +245,6 @@ class AGNSourceThinDisk(TransientSource):
     accretion_rate: float
     inclination_angle: float
     r_star: float
-    w_grid: jnp.ndarray | None 
-    grid_w_chars: tuple[float] | None
     times: jnp.ndarray
     perturbations: jnp.ndarray
 
@@ -269,7 +263,7 @@ class AGNSourceThinDisk(TransientSource):
     
     @forward
     def base_luminosity_density(self, w: float, num_integration_points: int = 1000, inclination_angle=None, blackhole_mass=None, accretion_rate=None, r_star=None) -> float:
-        """ Calculate the flux at a specific frecuency for a specific agn"""
+        """ Calculate the time-indepenedent base luminosity density predicted by the thin disk model for this AGN."""
         freq = c_m/w
         # we assume R∗​=RISCO​=6GM​/c**2
         first_prod = 4*jnp.pi*h_m2kg*jnp.cos(inclination_angle)*freq**3/c_m**2 / (10 * 3.086e+16)**2
@@ -283,11 +277,10 @@ class AGNSourceThinDisk(TransientSource):
     
     @forward
     def luminosity_density(self, w: jnp.ndarray, t: jnp.ndarray, integration_points: int = 1000, perturbations=None) -> jnp.ndarray:
-        """ Interpolate the luminosity density for a single w and t using this AGN's loaded grid."""
+        """ Interpolate the luminosity density for a all combinations of the elements in <w> and <t>."""
         # TODO: Is there a tidier way of doing it? in_axes wasn't working...
         def getting_base_luminosity_fixed_points(x):
             return self.base_luminosity_density(x, num_integration_points=integration_points)
         base_luminosity = jax.vmap(self.base_luminosity_density)(w=w)
-        print(type(self.times))
         perturbation = jnp.interp(t, self.times, perturbations) # linearly interpolate perturbations
         return base_luminosity[None, :] * perturbation[:, None]
