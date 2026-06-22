@@ -1,6 +1,5 @@
 import os
 from warnings import filters
-import jax.numpy as jnp
 from caskade import Param, forward
 from cosmographi.cosmology import Cosmology
 from .base import TransientSource
@@ -12,9 +11,12 @@ from ..utils.constants import c_nm, c_m, G, sigma, h_m2kg, k_m2kgsminus2
 from .func import temperature, integrand_funct
 from jax.scipy.integrate import trapezoid
 import jax
+# jax.config.update("jax_enable_x64", True)
+import jax.numpy as jnp
 
 
 ABSOLUTE_FLUX_TO_LUM_DENSITY = (10 * 3.086e+16) **2 * jnp.pi * 4
+
 
 class AGNSource(TransientSource):
     """ An AGN source. WIP Model, do not use.
@@ -263,7 +265,7 @@ class AGNSourceThinDisk(TransientSource):
     
     @forward
     def base_luminosity_density(self, w: float, num_integration_points: int = 1000, inclination_angle=None, blackhole_mass=None, accretion_rate=None, r_star=None) -> float:
-        """ Calculate the time-indepenedent base luminosity density predicted by the thin disk model for this AGN."""
+        """ Calculate the time-indepenedent base luminosity density predicted by the thin disk model for this AGN. Return in Nanowatts * s"""
         freq = c_m/w
         # we assume R∗​=RISCO​=6GM​/c**2
         first_prod = 4*jnp.pi*h_m2kg*jnp.cos(inclination_angle)*freq**3/c_m**2 / (10 * 3.086e+16)**2
@@ -278,9 +280,6 @@ class AGNSourceThinDisk(TransientSource):
     @forward
     def luminosity_density(self, w: jnp.ndarray, t: jnp.ndarray, integration_points: int = 1000, perturbations=None) -> jnp.ndarray:
         """ Interpolate the luminosity density for a all combinations of the elements in <w> and <t>."""
-        # def getting_base_luminosity_fixed_points(x):
-        #     return self.base_luminosity_density(x, num_integration_points=integration_points)
-        # base_luminosity = jax.vmap(getting_base_luminosity_fixed_points)(x=w)
         base_luminosity = jax.vmap(self.base_luminosity_density, in_axes=(0, None))(w, integration_points)
         perturbation = jnp.interp(t, self.times, perturbations) # linearly interpolate perturbations
         return base_luminosity[None, :] * perturbation[:, None]
