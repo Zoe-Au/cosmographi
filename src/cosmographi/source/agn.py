@@ -13,6 +13,7 @@ from jax.scipy.integrate import trapezoid
 import jax
 # jax.config.update("jax_enable_x64", True)
 import jax.numpy as jnp
+from cosmographi.utils.flux import f_l
 
 
 ABSOLUTE_FLUX_TO_LUM_DENSITY = (10 * 3.086e+16) **2 * jnp.pi * 4
@@ -265,21 +266,22 @@ class AGNSourceThinDisk(TransientSource):
     
     @forward
     def base_luminosity_density(self, w: float, num_integration_points: int = 1000, inclination_angle=None, blackhole_mass=None, accretion_rate=None, r_star=None) -> float:
-        """ Calculate the time-indepenedent base luminosity density predicted by the thin disk model for this AGN. Return in Nanowatts * s"""
-        freq = c_m/w
+        """ Calculate the time-indepenedent base luminosity density predicted by the thin disk model for this AGN. Return in erg/s/nm. w must be in nm."""
+        freq = c_nm/w
         # we assume R∗​=RISCO​=6GM​/c**2
         first_prod = 4*jnp.pi*h_m2kg*jnp.cos(inclination_angle)*freq**3/c_m**2 / (10 * 3.086e+16)**2
         # assume R_out is 10**4 * r_star
         r_seq = jnp.linspace(r_star, 10**4 * r_star, num_integration_points)
         y_seq = integrand_funct(R=r_seq, freq=freq, mass=blackhole_mass, acc_rate=accretion_rate, r_star=r_star)
         second_prod = trapezoid(y_seq, r_seq)
-        flux = first_prod * second_prod 
+        flux = f_l(f_nu = first_prod * second_prod *1e3, nu = freq) 
         luminosity_density = flux * ABSOLUTE_FLUX_TO_LUM_DENSITY
         return luminosity_density
     
     @forward
     def luminosity_density(self, w: jnp.ndarray, t: jnp.ndarray, integration_points: int = 1000, perturbations=None) -> jnp.ndarray:
-        """ Interpolate the luminosity density for a all combinations of the elements in <w> and <t>."""
+        """ Interpolate the luminosity density ( erg/s/nm ) for a all combinations of the elements in <w> and <t>."""
+        t = jnp.atleast_1d(t)
         base_luminosity = jax.vmap(self.base_luminosity_density, in_axes=(0, None))(w, integration_points)
         perturbation = jnp.interp(t, self.times, perturbations) # linearly interpolate perturbations
         return base_luminosity[None, :] * perturbation[:, None]
