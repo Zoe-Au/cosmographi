@@ -192,7 +192,7 @@ def sample_near(ra, dec, radius_deg, n=1):
     return coords[0].deg, coords[1].deg
 
 
-def bandstr_to_bandidx(bands, bandstr):
+def bandstr_to_bandidx(bands, bandstr, return_dict=False):
     """
     Convert bands in a list as strings into indices corresponding to their
     position in a given list of bands. For example, if bands = ["g", "r", "i",
@@ -225,15 +225,12 @@ def bandstr_to_bandidx(bands, bandstr):
 
     # Find the positions in the sorted array. O(mlogn)
     sorted_positions = np.searchsorted(sorted_bands, target)
-
     # 4. Undo the sort
-    return sort_idx[sorted_positions]
+    if not return_dict:
+        return sort_idx[sorted_positions]
+    else:
+        idx_to_bandstr = dict(enumerate(bands))
+        return (sort_idx[sorted_positions], idx_to_bandstr)
 
-def bandidx_to_bandstr(bands, bandidx):
-    """
-    Convert band indices back into strings. Inverse of `bandstr_to_bandidx`.
-    # TODO: Is this correct?
-    """
-    return np.array(bands)[bandidx]
 
 

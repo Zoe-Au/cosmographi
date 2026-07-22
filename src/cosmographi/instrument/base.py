@@ -163,7 +163,7 @@ class Instrument(Module):
 
         # Observed number of electrons with noise
         noise = jax.random.normal(key, shape=flux.shape)
-        Nobs = N + noise * jnp.sqrt(Ve + Vbkg + Vread)
+        Nobs =  N + noise * jnp.sqrt(Ve + Vbkg + Vread) 
 
         flux_obs = Nobs / norm  # Convert back to flux units
         # Measured flux uncertainty, set floor at Vread since typical variance plane

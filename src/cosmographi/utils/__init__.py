@@ -24,6 +24,7 @@ from .plots import corner_plot
 from .loading import load_salt2_surface, load_salt2_colour_law
 from .extinction import fp99_extinction_law, fp99_extinction_law_knots, calzetti00_extinction_law
 from .survey import cross_match_survey_circle
+from .perturbations import generate_perturbations_vector
 
 __all__ = (
     "constants",
