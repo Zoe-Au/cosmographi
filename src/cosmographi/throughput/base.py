@@ -9,7 +9,7 @@ from ..utils.registry import Loadable
 class Throughput(Module):
     """Stores throughput curves
 
-    These combine bandpass filters, atmosphere throughput, mirror/lens and other
+    These combine bandpass filters, atmosphere throughput, mirror/lens, detector (including quantum efficiency) and other
     hardware throughput.
 
     This object holds the wavelength and transmission curves for batched filters

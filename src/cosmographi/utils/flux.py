@@ -141,7 +141,7 @@ def f_lambda_band(w, f_l, T_b):
 
     $$F_{\\lambda}^{obs} = \\frac{1}{hc}\\int \\lambda f_{\\lambda}^{obs}(\\lambda) T(\\lambda) d\\lambda$$
 
-    The result is in photons/s/cm^2, which is the same as the result from
+    The result is in electrons/s/cm^2, which is the same as the result from
     f_nu_band, but integrated in wavelength space instead of frequency space.
 
     Parameters
@@ -151,17 +151,17 @@ def f_lambda_band(w, f_l, T_b):
     f_l : jnp.array
         Spectral flux density from f_lambda function (erg/s/cm^2/nm) evaluated
         at w.
-    T_b : jnp.ndarray
-        Transmission array for the bandpass (unitless) evaluated at w. This is
-        the quantum efficiency (or fraction of photons that are counted) of the
-        instrument for each wavelength in w.
+    T_b : Transmission array for the bandpass (unitless) evaluated at w. This includes all
+        hardware components (including  mirrors, lenses, filter, detector) and thus considers
+        quantum efficiency, hence why the output is in electrons/s/cm^2. The array can 
+        optionally consider atmospheric Throughtput too. 
 
     Returns
     -------
     flux : jnp.ndarray
-        Flux integrated over the band (photons/s/cm^2)
+        Flux integrated over the band (electrons/s/cm^2)
     """
-    return jnp.trapezoid(f_l * T_b * w, w) / (c_nm * h)  # in photons/s/cm^2
+    return jnp.trapezoid(f_l * T_b * w, w) / (c_nm * h)  # in electrons/s/cm^2
 
 
 def f_nu_band(nu, f_nu, T_nu):
@@ -170,7 +170,7 @@ def f_nu_band(nu, f_nu, T_nu):
 
     $$F_{\\nu}^{obs} = \\frac{1}{h}\\int \\frac{1}{\\nu}f_{\\nu}^{obs}(\\nu) T(\\nu) d\\nu$$
 
-    The result is in photons/s/cm^2, which is the same as the result from
+    The result is in electrons/s/cm^2, which is the same as the result from
     f_lambda_band, but integrated in frequency space instead of wavelength
     space.
 
@@ -181,13 +181,14 @@ def f_nu_band(nu, f_nu, T_nu):
     f_nu : jnp.ndarray
         Spectral flux density from f_nu function (erg/s/cm^2/Hz) evaluated at nu
     T_nu : jnp.ndarray
-        Transmission array for the bandpass (unitless) evaluated at nu. This is
-        the quantum efficiency (or fraction of photons that are counted) of the
-        instrument for each frequency in nu.
+        Transmission array for the bandpass (unitless) evaluated at w. This includes all
+        hardware components (including  mirrors, lenses, filter, detector) and thus considers
+        quantum efficiency, hence why the output is in electrons/s/cm^2. The array can 
+        optionally consider atmospheric Throughtput too. 
 
     Returns
     -------
     flux : jnp.ndarray
-        Flux integrated over the band (photons/s/cm^2)
+        Flux integrated over the band (electrons/s/cm^2)
     """
-    return jnp.trapezoid(f_nu * T_nu / nu, nu) / h  # in photons/s/cm^2
+    return jnp.trapezoid(f_nu * T_nu / nu, nu) / h  # in electrons/s/cm^2
