@@ -353,236 +353,75 @@ class AGNFitPrior(ck.Module):
         return d
 
 
-
     def plot(self, true_values: dict[str, any] = None):
         d = self.fit()
         idata = az.from_dict(d)
-
-        vector_params = {
-            "real_fourier_perturbations",
-            "imag_fourier_perturbations",
-        }
-
+        vector_params = {"real_fourier_perturbations", "imag_fourier_perturbations"}
         var_names = list(idata.posterior.data_vars)
 
-        # ================================================================
-        # UNPACK TRUE VALUES ONLY
-        #
-        # Scalars:
-        #   alpha -> {"alpha": 0.7}
-        #
-        # Vectors:
-        #   real_fourier_perturbations ->
-        #       {"real_fourier_perturbations_0": ...,
-        #        "real_fourier_perturbations_1": ..., ...}
-        #
-        # We do NOT unpack idata.posterior here.
-        # ================================================================
-
         unpacked_true_values = {}
-
         if true_values is not None:
             for name, value in true_values.items():
-
                 if name in vector_params:
                     values = np.asarray(value).ravel()
-
                     for i, v in enumerate(values):
                         unpacked_true_values[f"{name}_{i}"] = float(v)
-
                 else:
                     unpacked_true_values[name] = float(value)
-
-        # ================================================================
-        # SEPARATE SCALAR AND VECTOR PARAMETERS
-        # ================================================================
-
-        scalar_var_names = [
-            name
-            for name in var_names
-            if name not in vector_params
-        ]
-
-        perturbation_var_names = [
-            name
-            for name in vector_params
-            if name in idata.posterior
-        ]
-
-        # ================================================================
-        # TRACE: SCALARS
-        # ================================================================
+        scalar_var_names = [name for name in var_names if name not in vector_params]
+        perturbation_var_names = [name for name in vector_params if name in idata.posterior]
 
         scalar_lines = None
-
         if unpacked_true_values:
-            scalar_lines = [
-                (
-                    name,
-                    {},
-                    unpacked_true_values[name],
-                )
-                for name in scalar_var_names
-                if name in unpacked_true_values
-            ]
-
+            scalar_lines = [(name, {}, unpacked_true_values[name]) for name in scalar_var_names if name in unpacked_true_values]
         if scalar_var_names:
-            az.plot_trace(
-                idata,
-                var_names=scalar_var_names,
-                lines=scalar_lines if scalar_lines else None,
-                compact=True,
-            )
-
+            az.plot_trace(idata, var_names=scalar_var_names, lines=scalar_lines if scalar_lines else None, compact=True)
             plt.tight_layout()
             plt.show()
-
-        # ================================================================
-        # TRACE: FOURIER VECTORS
-        #
-        # No true-value lines here. This avoids constructing one ArviZ
-        # line object per Fourier coefficient.
-        # ================================================================
 
         if perturbation_var_names:
-            az.plot_trace(
-                idata,
-                var_names=perturbation_var_names,
-                compact=True,
-            )
-
+            az.plot_trace(idata, var_names=perturbation_var_names, compact=True)
             plt.tight_layout()
             plt.show()
-
-        # ================================================================
-        # POSTERIOR: SCALARS
-        #
-        # IMPORTANT:
-        # ArviZ expects:
-        #
-        # ref_val={
-        #     "alpha": [{"ref_val": 0.7}]
-        # }
-        #
-        # rather than:
-        #
-        # ref_val={"alpha": 0.7}
-        # ================================================================
 
         scalar_ref_val = {}
-
         for name in scalar_var_names:
             if name in unpacked_true_values:
-                scalar_ref_val[name] = [
-                    {
-                        "ref_val": unpacked_true_values[name]
-                    }
-                ]
+                scalar_ref_val[name] = [{"ref_val": unpacked_true_values[name]}]
 
         if scalar_var_names:
-            az.plot_posterior(
-                idata,
-                var_names=scalar_var_names,
-                ref_val=(
-                    scalar_ref_val
-                    if scalar_ref_val
-                    else None
-                ),
-            )
-
+            az.plot_posterior(idata, var_names=scalar_var_names, ref_val=(scalar_ref_val if scalar_ref_val else None))
             plt.tight_layout()
             plt.show()
-
-        # ================================================================
-        # POSTERIOR: FOURIER VECTORS
-        #
-        # Don't pass thousands of reference values to ArviZ.
-        # This is intentionally reference-line-free for memory safety.
-        # ================================================================
-
         if perturbation_var_names:
-            az.plot_posterior(
-                idata,
-                var_names=perturbation_var_names,
-            )
-
+            az.plot_posterior(idata, var_names=perturbation_var_names)
             plt.tight_layout()
             plt.show()
-
-        # ================================================================
-        # PAIR PLOT
-        #
-        # Expand vector posterior variables ONLY for the pair plot.
-        # ================================================================
 
         pair_idata = idata.copy()
         pair_var_names = []
         pair_reference_values = {}
 
         for name in var_names:
-
-            # ------------------------------------------------------------
-            # Scalar
-            # ------------------------------------------------------------
-
             if name not in vector_params:
-
                 pair_var_names.append(name)
-
                 if name in unpacked_true_values:
-                    pair_reference_values[name] = (
-                        unpacked_true_values[name]
-                    )
-
+                    pair_reference_values[name] = (unpacked_true_values[name])
                 continue
-
-            # ------------------------------------------------------------
-            # Vector
-            # ------------------------------------------------------------
-
             data = idata.posterior[name]
             dim = f"{name}_dim_0"
-
             n_elements = data.sizes[dim]
-
             for i in range(n_elements):
-
                 scalar_name = f"{name}_{i}"
-
-                pair_idata.posterior[scalar_name] = (
-                    data.isel({dim: i})
-                )
-
+                pair_idata.posterior[scalar_name] = (data.isel({dim: i}))
                 pair_var_names.append(scalar_name)
-
                 if scalar_name in unpacked_true_values:
-                    pair_reference_values[scalar_name] = (
-                        unpacked_true_values[scalar_name]
-                    )
-
-        # ================================================================
-        # PAIR PLOT
-        # ================================================================
-
+                    pair_reference_values[scalar_name] = (unpacked_true_values[scalar_name])
         if pair_var_names:
-            az.plot_pair(
-                pair_idata,
-                var_names=pair_var_names,
-                kind="kde",
-                marginals=True,
-                reference_values=(
-                    pair_reference_values
-                    if pair_reference_values
-                    else None
-                ),
-                reference_values_kwargs={
-                    "color": "red",
-                    "marker": "o",
-                },
-            )
-
+            az.plot_pair(pair_idata, var_names=pair_var_names, kind="kde", marginals=True,
+                reference_values=(pair_reference_values if pair_reference_values else None),
+                reference_values_kwargs={"color": "red", "marker": "o"})
             plt.tight_layout()
             plt.show()
-
         return d
 
