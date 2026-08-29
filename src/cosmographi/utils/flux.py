@@ -192,3 +192,51 @@ def f_nu_band(nu, f_nu, T_nu):
         Flux integrated over the band (electrons/s/cm^2)
     """
     return jnp.trapezoid(f_nu * T_nu / nu, nu) / h  # in electrons/s/cm^2
+
+def convert_to_ab_mag(flux: jnp.ndarray, band_ids: jnp.ndarray, band_ids_to_photo_zero: jnp.ndarray, effective_aperture: float) -> jnp.ndarray:
+    """
+    Convert <flux> in electrons/s/cm^2 to AB magnitude.
+
+    Parameters:
+    -----------
+    flux: jnp.ndarray
+        flux in electrons/s/cm^2. Negative elements will result in nan returns, 0 elements in inf.
+    band_ids: jnp.ndarray
+        It elements must correspond to the bands used to observe the element of <flux> that is in the same position. Its elements must be
+        keys to band_ids_to_photo_zero.
+    band_ids_to_photo_zero: jnp.ndarray
+        The nth element corresponds to the Photometric AB Zeropoints of the nth id in band_ids.
+    effective_aperture: float
+        Effective aperture of the instrument in cm^2
+    
+    Returns:
+    --------
+    flux_njy: jnp.ndarray
+        The flux in AB magnitude
+    """
+    return -2.5 * jnp.log10(flux * effective_aperture) + band_ids_to_photo_zero[band_ids]
+
+def convert_to_jy(flux: jnp.ndarray, band_ids: jnp.ndarray, band_ids_to_photo_zero: jnp.ndarray, effective_aperture: float) -> jnp.ndarray:
+    """
+    Convert <flux> in electrons/s/cm^2 to AB magnitude.
+
+    Parameters:
+    -----------
+    flux: jnp.ndarray
+        flux in electrons/s/cm^2. Negative elements will result in nan returns, 0 elements in inf.
+    band_ids: jnp.ndarray
+        It elements must correspond to the bands used to observe the element of <flux> that is in the same position. Its elements must be
+        keys to band_ids_to_photo_zero.
+    band_ids_to_photo_zero: jnp.ndarray
+        The nth element corresponds to the Photometric Zeropoints of the nth id in band_ids.
+    effective_aperture: float
+        Effective aperture of the instrument in cm^2
+    
+    Returns:
+    --------
+    fluxjy: jnp.ndarray
+        The flux in Jy
+    """
+    band_ids = jnp.atleast_1d(band_ids)
+    band_ids = band_ids[:, None]
+    return 3631 * flux * effective_aperture * 10**(band_ids_to_photo_zero[band_ids]/(-2.5))

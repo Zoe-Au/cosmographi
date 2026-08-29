@@ -60,4 +60,5 @@ __all__ = (
     "fp99_extinction_law_knots",
     "calzetti00_extinction_law",
     "cross_match_survey_circle",
+    "generate_perturbations_vector",
 )

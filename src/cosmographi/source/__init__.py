@@ -11,6 +11,7 @@ __all__ = (
     "AGNSource",
     "AGNSourceSu2026",
     "AGNSourceLipunova2018",
+    "AGNSourceLipunova2018_no_fourier",
     "AGNSourceThinDisk",
     "SALT2_2021",
     "effects",

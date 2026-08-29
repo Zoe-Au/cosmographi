@@ -242,7 +242,7 @@ class AGNSourceThinDisk(TransientSource):
         inner radius of the thin disk, smallest radius from which heat radiates. We assume it to be the innermost 
         stable circular orbit (ISCO), since we assume a non-rotating black hole.
     times: jnp.ndarray[float] | None
-        A vector of length equal to <time_perturbations> whose values equal to the times represented by <time_perturbations>.
+        A vector of length equal to <time_perturbations> whose values equal to the times represented by <time_perturbations>. In rest frame.
     time_perturbations: jnp.ndarray[float] | None
         An array containing all of the values the base luminosities will be multiplied by to cause variability with respect to time. 
         It slength will determine the number of timepoints we will have in the grid. 
@@ -443,6 +443,9 @@ class AGNSourceLipunova2018(TransientSource):
     time_perturbations: jnp.ndarray[float] | None
         An array containing all of the values the base luminosities will be multiplied by to cause variability with respect to time. 
         Its length will determine the number of timepoints we will have in the grid. 
+    luminosity_density_scaling: float
+        A factor by which to divide the luminosity density. This could be used, for example, to correct for bias introduced by the 
+        perturbations.
     """
     name: str
     cosmology: Cosmology
@@ -454,7 +457,7 @@ class AGNSourceLipunova2018(TransientSource):
     perturbations: jnp.ndarray
 
     def __init__(self, cosmology: Cosmology = None, name: str = None, blackhole_mass: float = None, accretion_rate: float = None, inclination_angle: float = None, 
-                 rin_to_rng: float = 6, perturbations_ar: jnp.ndarray = None, start_time: float = None, end_time: float = None, **kwargs) -> None:
+                 rin_to_rng: float = 6, real_fourier_perturbations: jnp.ndarray = None, imag_fourier_perturbations: jnp.ndarray = None, start_time: float = None, end_time: float = None, luminosity_density_scaling: float = 1, **kwargs) -> None:
         super().__init__(cosmology=cosmology, name=name, **kwargs)
         self.blackhole_mass = Param("blackhole_mass", blackhole_mass, shape=(), 
                                    description="Mass of the black hole", units="kg")
@@ -462,9 +465,27 @@ class AGNSourceLipunova2018(TransientSource):
                                    description="accretion_rate of the black hole", units="kg/year")
         self.inclination_angle = Param("inclination_angle", inclination_angle, units="radians", description="inclination angle of the AGN with respect to the observer")
         self.rin_to_rng = Param("rin_to_rng", rin_to_rng, units="dimentionless", description="inner radius of the thin disk")
-        self.perturbations = Param("perturbations", perturbations_ar, units="dimentionless", shape=(len(perturbations_ar), ), description="a vector containing all of the numbers the base luminosities will be " \
-        "multiplied by. Cause the variability with respect to time. Its length will determine the number of time points queried.")
-        self.times = jnp.linspace(start_time, end_time, len(perturbations_ar))
+        self.real_fourier_perturbations = Param("real_fourier_perturbations", real_fourier_perturbations)
+        self.imag_fourier_perturbations = Param("imag_fourier_perturbations", imag_fourier_perturbations)
+        # self.P_k = Param("P_k", P_k)
+        # self.z_r = Param("z_r", z_r)
+        # self.z_i = Param("z_i", z_i)
+        # self.real_fourier_perturbations = Param("real_fourier_perturbations", lambda p: p.z_r.value*jnp.sqrt(p.P_k.value))
+        # self.real_fourier_perturbations.link(self.P_k)
+        # self.real_fourier_perturbations.link(self.z_r)
+        # self.imag_fourier_perturbations = Param("imag_fourier_perturbations", lambda p: p.z_i.value*jnp.sqrt(p.P_k.value))
+        # self.imag_fourier_perturbations.link(self.P_k)
+        # self.imag_fourier_perturbations.link(self.z_i)
+        # self.fourier_perturbations = Param("fourier_perturbations", lambda p: jnp.concatenate([jnp.zeros(1), p.real_fourier_perturbations.value + 1j * p.imag_fourier_perturbations.value]))
+        self.fourier_perturbations = Param("fourier_perturbations", lambda p: jnp.concatenate([p.real_fourier_perturbations.value + 1j * p.imag_fourier_perturbations.value]))
+        self.fourier_perturbations.link(self.real_fourier_perturbations)
+        self.fourier_perturbations.link(self.imag_fourier_perturbations)
+        self.perturbations = Param("perturbations", lambda p: jnp.fft.irfft(p.fourier_perturbations.value), units="dimentionless", description="a vector containing all of the numbers the base luminosities will be " \
+        "multiplied by. Cause of the variability with respect to time. Its length will determine the number of time points queried.")
+        self.perturbations.link(self.fourier_perturbations)
+        self.luminosity_density_scaling = Param("luminosity_density_scaling", luminosity_density_scaling, units="dimentionless", description="a factor by which to divide the luminosity density")
+        self.start_time = Param("start_time", start_time)
+        self.end_time = Param("end_time", end_time)
     
     @forward
     def base_luminosity_density(self, w: float | jnp.ndarray, num_integration_points: int = 100, inclination_angle=None, blackhole_mass=None, accretion_rate=None, rin_to_rng=None) -> float:
@@ -478,39 +499,134 @@ class AGNSourceLipunova2018(TransientSource):
         # Set minimum x_in value for numerical stability
         x_in = jnp.maximum(h_m2kg * freq / (k_si * T_0) * (r_in / r_0) ** (3 / 4), 1e-6)
         x_out = x_in + 100
-        # def _ (a, b):
-        #     return quad(standard_disk_integration_f, a=a, b=b, n=num_integration_points)
-        # integral = jax.vmap(_)(x_in, x_out)
         integral = jax.vmap(quad, in_axes=(None, 0, 0, None))(standard_disk_integration_f, x_in, x_out, num_integration_points)
         flux_freq = 16 * jnp.pi / 3 / distance**2 * jnp.cos(inclination_angle) * (k_si * T_0 / h_m2kg)**(8/3) * h_m2kg * freq**(1/3) * r_0**2 / (c_m**2) * integral * 10**3 # erg/s/cm^2/Hz
         flux = f_l(f_nu=flux_freq, nu =freq)
         luminosity_density = flux * ABSOLUTE_FLUX_TO_LUM_DENSITY
         return luminosity_density
     
-    # @forward
-    # def base_luminosity_density_other_integration(self, w: float | jnp.ndarray, num_integration_points: int = 100, inclination_angle=None, blackhole_mass=None, accretion_rate=None, rin_to_rng=None) -> float:
-    #     """ Calculate the time-indepenedent base luminosity density predicted by the thin disk model for this AGN. Return in erg/s/nm. w must be in nm, and the distance <d> in parsecs."""
-    #     w = jnp.atleast_1d(w)
-    #     freq = c_nm/w
-    #     r_in = rin_to_rng * G * blackhole_mass / c_m**2 # in metres
-    #     r_0 = (7 / 6) ** 2 * r_in # as done in lighcurvelynx from page 31 of https://doi.org/10.1007/978-3-319-93009-1_1
-    #     T_0 = compute_T0(blackhole_mass, accretion_rate, r_in)
-    #     distance = 10 * PARSECS_TO_METRES
-    #     # Set minimum x_in value for numerical stability
-    #     x_in = jnp.maximum(h_m2kg * freq / (k_si * T_0) * (r_in / r_0) ** (3 / 4), 1e-6)
-    #     x_out = x_in + 100
-    #     x_seq = jnp.linspace(x_in, x_out, num_integration_points)
-    #     y_seq = standard_disk_integration_f(x_seq)
-    #     integral = trapezoid(y_seq, x_seq, axis=0)
-    #     flux_freq = 16 * jnp.pi / 3 / distance**2 * jnp.cos(inclination_angle) * (k_si * T_0 / h_m2kg)**(8/3) * h_m2kg * freq**(1/3) * r_0**2 / (c_m**2) * integral * 10**3 # erg/s/cm^2/Hz
-    #     flux = f_l(f_nu=flux_freq, nu =freq)
-    #     luminosity_density = flux * ABSOLUTE_FLUX_TO_LUM_DENSITY
-    #     return luminosity_density
-
     @forward
-    def luminosity_density(self, w: jnp.ndarray, t: jnp.ndarray, integration_points: int = 100, perturbations=None) -> jnp.ndarray:
+    def luminosity_density(self, w: jnp.ndarray, t: jnp.ndarray, integration_points: int = 100, perturbations=None, luminosity_density_scaling=None, start_time=None, end_time=None) -> jnp.ndarray:
         """ Interpolate the luminosity density ( erg/s/nm ) for a all combinations of the elements in <w> and <t>."""
+        times = jnp.linspace(start_time, end_time, len(perturbations))
         t = jnp.atleast_1d(t)
         base_luminosity = self.base_luminosity_density(w=w, num_integration_points=integration_points)
-        perturbation = jnp.interp(t, self.times, perturbations) # linearly interpolate perturbations
-        return base_luminosity[None, :] * perturbation[:, None]
+        perturbation = jnp.interp(t, times, perturbations) # linearly interpolate perturbations
+        return base_luminosity[None, :] * jnp.exp(perturbation[:, None]) / luminosity_density_scaling
+
+class AGNSourceLipunova2018_no_fourier(TransientSource):
+    """ Create an AGN source whose SED is modelled according to the standard disk model, as used in lighcurvelynx, based on https://doi.org/10.1007/978-3-319-93009-1_1
+
+    Parameters
+    ---------- 
+    cosmology: Cosmology. 
+        Optional. If given, it can be used to compute the distance modulus from the redshift.
+    name: str. 
+        Optional. Name of the source.
+    blackhole_mass: float. 
+        Mass of the black hole in kg
+    accretion_rate: float. 
+        Accretion rate of the black hole, in kg/year
+    inclination_angle: Param(float)
+        Inclination angle of the AGN with respect to the observer. The oberver's line of sight makes an angle i 
+        to the normal to the disc plane. In radians. 
+    r_rin_to_rngin: Param(float)
+        Ratio of the inner radius to the gravitational radius of the black hole. 
+    times: jnp.ndarray[float] | None
+        A vector of length equal to <time_perturbations> whose values equal to the times represented by <time_perturbations>.
+    time_perturbations: jnp.ndarray[float] | None
+        An array containing all of the values the base luminosities will be multiplied by to cause variability with respect to time. 
+        Its length will determine the number of timepoints we will have in the grid. 
+    luminosity_density_scaling: float
+        A factor by which to divide the luminosity density. This could be used, for example, to correct for bias introduced by the 
+        perturbations.
+    """
+    name: str
+    cosmology: Cosmology
+    blackhole_mass: float 
+    accretion_rate: float
+    inclination_angle: float
+    rin_to_rng: float
+    times: jnp.ndarray
+    perturbations: jnp.ndarray
+
+    def __init__(self, cosmology: Cosmology = None, name: str = None, blackhole_mass: float = None, accretion_rate: float = None, inclination_angle: float = None, 
+                 rin_to_rng: float = 6, perturbations: jnp.ndarray = None, start_time: float = None, end_time: float = None, luminosity_density_scaling: float = 1, **kwargs) -> None:
+        super().__init__(cosmology=cosmology, name=name, **kwargs)
+        self.blackhole_mass = Param("blackhole_mass", blackhole_mass, shape=(), 
+                                   description="Mass of the black hole", units="kg")
+        self.accretion_rate = Param("accretion_rate", accretion_rate, shape=(), 
+                                   description="accretion_rate of the black hole", units="kg/year")
+        self.inclination_angle = Param("inclination_angle", inclination_angle, units="radians", description="inclination angle of the AGN with respect to the observer")
+        self.rin_to_rng = Param("rin_to_rng", rin_to_rng, units="dimentionless", description="inner radius of the thin disk")
+        self.perturbations = Param("perturbations", perturbations)
+        self.luminosity_density_scaling = Param("luminosity_density_scaling", luminosity_density_scaling, units="dimentionless", description="a factor by which to divide the luminosity density")
+        self.start_time = Param("start_time", start_time)
+        self.end_time = Param("end_time", end_time)
+    
+    @forward
+    def base_luminosity_density(self, w: float | jnp.ndarray, num_integration_points: int = 100, inclination_angle=None, blackhole_mass=None, accretion_rate=None, rin_to_rng=None) -> float:
+        """ Calculate the time-indepenedent base luminosity density predicted by the thin disk model for this AGN. Return in erg/s/nm. w must be in nm, and the distance <d> in parsecs."""
+        w = jnp.atleast_1d(w)
+        freq = c_nm/w
+        r_in = rin_to_rng * G * blackhole_mass / c_m**2 # in metres
+        r_0 = (7 / 6) ** 2 * r_in # as done in lighcurvelynx from page 31 of https://doi.org/10.1007/978-3-319-93009-1_1
+        T_0 = compute_T0(blackhole_mass, accretion_rate, r_in)
+        distance = 10 * PARSECS_TO_METRES
+        # Set minimum x_in value for numerical stability
+        x_in = jnp.maximum(h_m2kg * freq / (k_si * T_0) * (r_in / r_0) ** (3 / 4), 1e-6)
+        x_out = x_in + 100
+        integral = jax.vmap(quad, in_axes=(None, 0, 0, None))(standard_disk_integration_f, x_in, x_out, num_integration_points)
+        flux_freq = 16 * jnp.pi / 3 / distance**2 * jnp.cos(inclination_angle) * (k_si * T_0 / h_m2kg)**(8/3) * h_m2kg * freq**(1/3) * r_0**2 / (c_m**2) * integral * 10**3 # erg/s/cm^2/Hz
+        flux = f_l(f_nu=flux_freq, nu =freq)
+        luminosity_density = flux * ABSOLUTE_FLUX_TO_LUM_DENSITY
+        return luminosity_density
+    
+    @forward
+    def luminosity_density(self, w: jnp.ndarray, t: jnp.ndarray, integration_points: int = 100, perturbations=None, luminosity_density_scaling=None, start_time=None, end_time=None) -> jnp.ndarray:
+        """ Interpolate the luminosity density ( erg/s/nm ) for a all combinations of the elements in <w> and <t>."""
+        times = jnp.linspace(start_time, end_time, len(perturbations))
+        t = jnp.atleast_1d(t)
+        base_luminosity = self.base_luminosity_density(w=w, num_integration_points=integration_points)
+        perturbation = jnp.interp(t, times, perturbations) # linearly interpolate perturbations
+        return base_luminosity[None, :] * jnp.exp(perturbation[:, None]) / luminosity_density_scaling
+
+
+class AGNSourceLipunova2018_invariable(AGNSourceLipunova2018):
+    """ A version of AGNSourceLipunova2018 that does not depend on time, created for fitting purposes. It does not have perturbations. 
+    """
+    name: str
+    cosmology: Cosmology
+    blackhole_mass: float 
+    accretion_rate: float
+    inclination_angle: float
+    rin_to_rng: float
+
+    def __init__(self, cosmology: Cosmology = None, name: str = None, blackhole_mass: float = None, accretion_rate: float = None, inclination_angle: float = None, 
+                 rin_to_rng: float = 6, luminosity_density_scaling: float = 1, **kwargs) -> None:
+        TransientSource.__init__(self, cosmology=cosmology, name=name, **kwargs)
+        self.blackhole_mass = Param("blackhole_mass", blackhole_mass, shape=(), 
+                                   description="Mass of the black hole", units="kg")
+        self.accretion_rate = Param("accretion_rate", accretion_rate, shape=(), 
+                                   description="accretion_rate of the black hole", units="kg/year")
+        self.inclination_angle = Param("inclination_angle", inclination_angle, units="radians", description="inclination angle of the AGN with respect to the observer")
+        self.rin_to_rng = Param("rin_to_rng", rin_to_rng, units="dimentionless", description="inner radius of the thin disk")
+        self.luminosity_density_scaling = Param("luminosity_density_scaling", luminosity_density_scaling, units="dimentionless", description="a factor by which to divide the luminosity density")
+    
+    @forward
+    def luminosity_density(self, w: float | jnp.ndarray, t, blackhole_mass=None, inclination_angle=None, accretion_rate=None, rin_to_rng=None) -> float:
+        """ Calculate the time-indepenedent base luminosity density predicted by the thin disk model for this AGN. Return in erg/s/nm. w must be in nm, and the distance <d> in parsecs."""
+        w = jnp.atleast_1d(w)
+        freq = c_nm/w
+        r_in = rin_to_rng * G * blackhole_mass / c_m**2 # in metres
+        r_0 = (7 / 6) ** 2 * r_in # as done in lighcurvelynx from page 31 of https://doi.org/10.1007/978-3-319-93009-1_1
+        T_0 = compute_T0(blackhole_mass, accretion_rate, r_in)
+        distance = 10 * PARSECS_TO_METRES
+        # Set minimum x_in value for numerical stability
+        x_in = jnp.maximum(h_m2kg * freq / (k_si * T_0) * (r_in / r_0) ** (3 / 4), 1e-6)
+        x_out = x_in + 100
+        integral = jax.vmap(quad, in_axes=(None, 0, 0, None))(standard_disk_integration_f, x_in, x_out, 100)
+        flux_freq = 16 * jnp.pi / 3 / distance**2 * jnp.cos(inclination_angle) * (k_si * T_0 / h_m2kg)**(8/3) * h_m2kg * freq**(1/3) * r_0**2 / (c_m**2) * integral * 10**3 # erg/s/cm^2/Hz
+        flux = f_l(f_nu=flux_freq, nu =freq)
+        luminosity_density = flux * ABSOLUTE_FLUX_TO_LUM_DENSITY
+        return luminosity_density

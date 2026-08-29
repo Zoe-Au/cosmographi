@@ -47,6 +47,7 @@ __all__ = (
     "AGNSource",
     "AGNSourceTong2026",
     "AGNSourceLipunova2018",
+    "AGNSourceLipunova2018_no_fourier",
     "AGNSourceThinDisk",
     "SALT2_2021",
     "source_factory",

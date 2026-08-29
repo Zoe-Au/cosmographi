@@ -60,7 +60,7 @@ class Instrument(Module):
             The source for which to calculate the flux.
         *args, **kwargs
             Additional arguments to pass to the source's spectral_flux_density
-            method. Note that the wavelength argument
+            method. Note that the wavelength argument does not need to be passed.
 
         Returns
         -------
@@ -85,7 +85,7 @@ class Instrument(Module):
             The variance on an observation of a point source in electron counts.
         """
         # Sky brightness noise in electrons
-        sky_flux = self.mag_system.mag_to_electron_flux(band, sky_brightness * PSF_Aeff)
+        sky_flux = self.mag_system.mag_to_electron_flux(band, sky_brightness) * PSF_Aeff
         sky_Ne = sky_flux * exp_time
 
         # Dark current noise in electrons
@@ -128,19 +128,16 @@ class Instrument(Module):
         -------
         flux_obs : float
             The observed flux of the source through the specified filter,
-            normalized by the magnitude system's reference flux, including
-            noise.
+            including noise, in electrons/s/cm^2
         flux_err_obs : float
             The observed uncertainty on the flux of the source through the
-            specified filter, normalized by the magnitude system's reference
-            flux, including noise.
+            specified filter in electrons/s/cm^2 , including noise.
         flux_true : float
-            The true flux of the source through the specified filter, normalized
-            by the magnitude system's reference flux, without noise.
+            The true flux of the source through the specified filter, in 
+            electrons/s/cm^2, without noise.
         flux_err_true : float
             The true uncertainty on the flux of the source through the specified
-            filter, normalized by the magnitude system's reference flux, without
-            noise.
+            filter, in electrons/s/cm^2, without noise.
 
         Note
         ----

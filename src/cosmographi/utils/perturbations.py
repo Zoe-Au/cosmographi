@@ -21,4 +21,4 @@ def generate_perturbations_vector(alpha, n_samples, sample_rate=1.0, seed: int |
     scaling_factor = scaling_factor.at[0].set(0.0)
     fft_colored = fft_white * scaling_factor
     colored_noise = jnp.fft.irfft(fft_colored, n=n_samples)
-    return jnp.exp(colored_noise - jnp.var(colored_noise)/2, ddof=1)
+    return colored_noise
