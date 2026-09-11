@@ -1,0 +1,125 @@
+strict digraph {
+	node [color=black shape=ellipse style=solid]
+	140131636160240 [label="AGNFit(fit)"]
+	node [color=black shape=ellipse style=solid]
+	140131096202992 [label="LogPosterior(log_posterior)"]
+	node [color=black shape=ellipse style=solid]
+	140130559311072 [label="LogLikelihoodAGN(log_likelihood)"]
+	node [color=black shape=ellipse style=solid]
+	140130557259616 [label="RubinObservatory(RubinObservatory)"]
+	node [color=black shape=ellipse style=solid]
+	140132172812880 [label="Throughput_wAtmos(Throughput_wAtmos)"]
+	node [color=lightgrey fillcolor=lightgrey shape=box style=filled]
+	140132172924400 [label=air_mass]
+	node [color=black shape=ellipse style=solid]
+	140130557261104 [label="MagAB(MagAB)"]
+	node [color=lightgrey fillcolor=lightgrey shape=box style=filled]
+	140130557570576 [label=Ze]
+	node [color=black shape=ellipse style=solid]
+	140130557458192 [label="AGNSourceLipunova2018_MWExtinction_Calzetti00(AGNSourceLipunova2018_MWExtinction_Calzetti00)"]
+	node [color=black fillcolor=white shape=box style=solid]
+	140130556903008 [label=z]
+	node [color=lightgrey fillcolor=lightgrey shape=rarrow style=filled]
+	140130557261776 [label=mu]
+	node [color=black shape=ellipse style=solid]
+	140132174734512 [label="Cosmology(Cosmology)"]
+	node [color=lightgrey fillcolor=lightgrey shape=box style=filled]
+	140132173079776 [label=H0]
+	node [color=lightgrey fillcolor=lightgrey shape=box style=filled]
+	140132173081024 [label=Omega_m]
+	node [color=lightgrey fillcolor=lightgrey shape=box style=filled]
+	140130557255680 [label=Omega_k]
+	node [color=lightgrey fillcolor=lightgrey shape=box style=filled]
+	140130557255872 [label=Omega_r]
+	node [color=lightgrey fillcolor=lightgrey shape=rarrow style=filled]
+	140130557256640 [label=Omega_l]
+	node [color=lightgrey fillcolor=lightgrey shape=box style=filled]
+	140130557257456 [label=w0]
+	node [color=lightgrey fillcolor=lightgrey shape=box style=filled]
+	140130557257936 [label=wa]
+	node [color=lightgrey fillcolor=lightgrey shape=box style=filled]
+	140130557261008 [label=t0]
+	node [color=lightgrey fillcolor=lightgrey shape=box style=filled]
+	140130557258272 [label=blackhole_mass]
+	node [color=lightgrey fillcolor=lightgrey shape=box style=filled]
+	140130557257264 [label=accretion_rate]
+	node [color=lightgrey fillcolor=lightgrey shape=box style=filled]
+	140130557256880 [label=inclination_angle]
+	node [color=lightgrey fillcolor=lightgrey shape=box style=filled]
+	140130557255344 [label=rin_to_rng]
+	node [color=black fillcolor=white shape=box style=solid]
+	140130557262736 [label=real_fourier_perturbations]
+	node [color=black fillcolor=white shape=box style=solid]
+	140130557263264 [label=imag_fourier_perturbations]
+	node [color=lightgrey fillcolor=lightgrey shape=rarrow style=filled]
+	140130557263792 [label=fourier_perturbations]
+	node [color=lightgrey fillcolor=lightgrey shape=rarrow style=filled]
+	140130557559728 [label=perturbations]
+	node [color=lightgrey fillcolor=lightgrey shape=box style=filled]
+	140130557560352 [label=luminosity_density_scaling]
+	node [color=lightgrey fillcolor=lightgrey shape=box style=filled]
+	140132173073728 [label=A_V_c00mw]
+	node [color=lightgrey fillcolor=lightgrey shape=box style=filled]
+	140130557569952 [label=R_V_c00mw]
+	node [color=black shape=ellipse style=solid]
+	140130559310112 [label="PowerLawPrior_logpdf(log_prior)"]
+	node [color=black fillcolor=white shape=box style=solid]
+	140130559305360 [label=alpha]
+	node [color=black fillcolor=white shape=box style=solid]
+	140130559305456 [label=A]
+	node [color=lightgrey fillcolor=lightgrey shape=box style=filled]
+	140130559305216 [label=real_fourier_perturbations]
+	node [color=lightgrey fillcolor=lightgrey shape=box style=filled]
+	140130559308912 [label=imag_fourier_perturbations]
+	node [color=lightgrey fillcolor=lightgrey shape=rarrow style=filled]
+	140131095834656 [label=fourier_perturbations]
+	140131636160240 -> 140131096202992
+	140131096202992 -> 140130559311072
+	140130559311072 -> 140130557259616
+	140130557259616 -> 140132172812880
+	140132172812880 -> 140132172924400
+	140130557259616 -> 140130557261104
+	140130557261104 -> 140130557570576
+	140130557261104 -> 140132172812880
+	140132172812880 -> 140132172924400
+	140130559311072 -> 140130557458192
+	140130557458192 -> 140130556903008
+	140130557458192 -> 140130557261776
+	140130557261776 -> 140132174734512
+	140132174734512 -> 140132173079776
+	140132174734512 -> 140132173081024
+	140132174734512 -> 140130557255680
+	140132174734512 -> 140130557255872
+	140132174734512 -> 140130557256640
+	140130557256640 -> 140132173081024
+	140130557256640 -> 140130557255680
+	140130557256640 -> 140130557255872
+	140132174734512 -> 140130557257456
+	140132174734512 -> 140130557257936
+	140130557261776 -> 140130556903008
+	140130557458192 -> 140130557261008
+	140130557458192 -> 140130557258272
+	140130557458192 -> 140130557257264
+	140130557458192 -> 140130557256880
+	140130557458192 -> 140130557255344
+	140130557458192 -> 140130557262736
+	140130557458192 -> 140130557263264
+	140130557458192 -> 140130557263792
+	140130557263792 -> 140130557262736
+	140130557263792 -> 140130557263264
+	140130557458192 -> 140130557559728
+	140130557559728 -> 140130557263792
+	140130557263792 -> 140130557262736
+	140130557263792 -> 140130557263264
+	140130557458192 -> 140130557560352
+	140130557458192 -> 140132173073728
+	140130557458192 -> 140130557569952
+	140131096202992 -> 140130559310112
+	140130559310112 -> 140130559305360
+	140130559310112 -> 140130559305456
+	140130559310112 -> 140130559305216
+	140130559310112 -> 140130559308912
+	140130559310112 -> 140131095834656
+	140131095834656 -> 140130559305216
+	140131095834656 -> 140130559308912
+}

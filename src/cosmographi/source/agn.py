@@ -456,7 +456,7 @@ class AGNSourceLipunova2018(TransientSource):
     times: jnp.ndarray
     perturbations: jnp.ndarray
 
-    def __init__(self, cosmology: Cosmology = None, name: str = None, blackhole_mass: float = None, accretion_rate: float = None, inclination_angle: float = None, 
+    def __init__(self, N, cosmology: Cosmology = None, name: str = None, blackhole_mass: float = None, accretion_rate: float = None, inclination_angle: float = None, 
                  rin_to_rng: float = 6, real_fourier_perturbations: jnp.ndarray = None, imag_fourier_perturbations: jnp.ndarray = None, start_time: float = None, end_time: float = None, luminosity_density_scaling: float = 1, **kwargs) -> None:
         super().__init__(cosmology=cosmology, name=name, **kwargs)
         self.blackhole_mass = Param("blackhole_mass", blackhole_mass, shape=(), 
@@ -467,25 +467,15 @@ class AGNSourceLipunova2018(TransientSource):
         self.rin_to_rng = Param("rin_to_rng", rin_to_rng, units="dimentionless", description="inner radius of the thin disk")
         self.real_fourier_perturbations = Param("real_fourier_perturbations", real_fourier_perturbations)
         self.imag_fourier_perturbations = Param("imag_fourier_perturbations", imag_fourier_perturbations)
-        # self.P_k = Param("P_k", P_k)
-        # self.z_r = Param("z_r", z_r)
-        # self.z_i = Param("z_i", z_i)
-        # self.real_fourier_perturbations = Param("real_fourier_perturbations", lambda p: p.z_r.value*jnp.sqrt(p.P_k.value))
-        # self.real_fourier_perturbations.link(self.P_k)
-        # self.real_fourier_perturbations.link(self.z_r)
-        # self.imag_fourier_perturbations = Param("imag_fourier_perturbations", lambda p: p.z_i.value*jnp.sqrt(p.P_k.value))
-        # self.imag_fourier_perturbations.link(self.P_k)
-        # self.imag_fourier_perturbations.link(self.z_i)
-        # self.fourier_perturbations = Param("fourier_perturbations", lambda p: jnp.concatenate([jnp.zeros(1), p.real_fourier_perturbations.value + 1j * p.imag_fourier_perturbations.value]))
-        self.fourier_perturbations = Param("fourier_perturbations", lambda p: jnp.concatenate([p.real_fourier_perturbations.value + 1j * p.imag_fourier_perturbations.value]))
+        self.fourier_perturbations = Param("fourier_perturbations", lambda p: p.real_fourier_perturbations.value + 1j * p.imag_fourier_perturbations.value)
         self.fourier_perturbations.link(self.real_fourier_perturbations)
         self.fourier_perturbations.link(self.imag_fourier_perturbations)
-        self.perturbations = Param("perturbations", lambda p: jnp.fft.irfft(p.fourier_perturbations.value), units="dimentionless", description="a vector containing all of the numbers the base luminosities will be " \
+        self.N = N
+        self.perturbations = Param("perturbations", lambda p: jnp.fft.irfft(p.fourier_perturbations.value, n=self.N), shape=(self.N,), units="dimentionless", description="a vector containing all of the numbers the base luminosities will be " \
         "multiplied by. Cause of the variability with respect to time. Its length will determine the number of time points queried.")
         self.perturbations.link(self.fourier_perturbations)
         self.luminosity_density_scaling = Param("luminosity_density_scaling", luminosity_density_scaling, units="dimentionless", description="a factor by which to divide the luminosity density")
-        self.start_time = Param("start_time", start_time)
-        self.end_time = Param("end_time", end_time)
+        self.times = jnp.squeeze(jnp.linspace(start_time, end_time, N))
     
     @forward
     def base_luminosity_density(self, w: float | jnp.ndarray, num_integration_points: int = 100, inclination_angle=None, blackhole_mass=None, accretion_rate=None, rin_to_rng=None) -> float:
@@ -506,12 +496,11 @@ class AGNSourceLipunova2018(TransientSource):
         return luminosity_density
     
     @forward
-    def luminosity_density(self, w: jnp.ndarray, t: jnp.ndarray, integration_points: int = 100, perturbations=None, luminosity_density_scaling=None, start_time=None, end_time=None) -> jnp.ndarray:
+    def luminosity_density(self, w: jnp.ndarray, t: jnp.ndarray, integration_points: int = 100, perturbations=None, luminosity_density_scaling=None) -> jnp.ndarray:
         """ Interpolate the luminosity density ( erg/s/nm ) for a all combinations of the elements in <w> and <t>."""
-        times = jnp.linspace(start_time, end_time, len(perturbations))
         t = jnp.atleast_1d(t)
         base_luminosity = self.base_luminosity_density(w=w, num_integration_points=integration_points)
-        perturbation = jnp.interp(t, times, perturbations) # linearly interpolate perturbations
+        perturbation = jnp.interp(t, self.times, perturbations) # linearly interpolate perturbations
         return base_luminosity[None, :] * jnp.exp(perturbation[:, None]) / luminosity_density_scaling
 
 class AGNSourceLipunova2018_no_fourier(TransientSource):
